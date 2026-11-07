@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Eng yaxshi trading vaqtlari</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: {
+      extend: {
+        colors: {
+          brand: { 500: '#3b82f6', 600: '#2563eb' }
+        }
+      }
+    }
+  }
+</script>
+<style>
+  .hour-block { transition: all .2s ease; }
+  .hour-block:hover { transform: translateY(-3px); }
+  .session-bar { transition: width .4s ease; }
+  .pulse-dot {
+    display:inline-block; width:10px; height:10px; border-radius:50%;
+    background:#22c55e; box-shadow:0 0 0 0 rgba(34,197,94,.7);
+    animation: pulse 1.8s infinite;
+  }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(34,197,94,.7); }
+    70% { box-shadow: 0 0 0 10px rgba(34,197,94,0); }
+    100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
+  }
+</style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-colors">
+
+<!-- HEADER -->
+<header class="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-30">
+  <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+    <h1 class="font-bold text-lg">📊 Trading Times</h1>
+    <div class="flex items-center gap-3">
+      <select id="tzSelect" class="text-sm bg-gray-100 dark:bg-gray-700 rounded-lg px-3 py-1.5 outline-none">
+        <option value="5">Toshkent (UTC+5)</option>
+        <option value="0">UTC</option>
+        <option value="3">London (UTC+3)</option>
+        <option value="-5">New York (UTC-5)</option>
+        <option value="9">Tokyo (UTC+9)</option>
+      </select>
+      <button id="themeToggle" class="text-xl" title="Rejim">🌙</button>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-6xl mx-auto px-4 py-6 space-y-8">
+
+  <!-- HERO -->
+  <section class="text-center">
+    <h2 class="text-2xl md:text-3xl font-extrabold mb-2">Eng yaxshi trading vaqtlari</h2>
+    <p class="text-gray-500 dark:text-gray-400">Bozor seanslari va eng yuqori likvidlik davrlari</p>
+    <div id="activeSession" class="mt-4 inline-flex items-center gap-2 bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 px-4 py-2 rounded-full text-sm font-medium">
+      <span class="pulse-dot"></span> Hozir faol: <span id="activeSessionName">—</span>
+    </div>
+  </section>
+
+  <!-- HOZIRGI VAQT -->
+  <section class="bg-white dark:bg-gray-800 rounded-2xl p-4 text-center shadow-sm">
+    <p class="text-sm text-gray-500 dark:text-gray-400">Hozirgi vaqt (<span id="tzLabel">Toshkent</span>)</p>
+    <p id="clock" class="text-2xl font-mono font-bold mt-1">--:--:--</p>
+  </section>
+
+  <!-- SESSIYALAR JADVALI -->
+  <section class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm overflow-hidden">
+    <div class="p-4 border-b border-gray-100 dark:border-gray-700">
+      <h3 class="font-bold">Asosiy sessiyalar</h3>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-gray-50 dark:bg-gray-700/50 text-left">
+          <tr>
+            <th class="p-3">Sessiya</th>
+            <th class="p-3">Vaqt (<span class="tz-inline">Toshkent</span>)</th>
+            <th class="p-3">Xususiyat</th>
+          </tr>
+        </thead>
+        <tbody id="sessionTable" class="divide-y divide-gray-100 dark:divide-gray-700"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 24 SOATLIK HEATMAP -->
+  <section class="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm">
+    <div class="flex items-center justify-between mb-3">
+      <h3 class="font-bold">24 soatlik likvidlik</h3>
+      <div class="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+        <span><span class="inline-block w-3 h-3 rounded bg-green-500"></span> Yuqori</span>
+        <span><span class="inline-block w-3 h-3 rounded bg-yellow-400"></span> O'rta</span>
+        <span><span class="inline-block w-3 h-3 rounded bg-gray-300 dark:bg-gray-600"></span> Past</span>
+      </div>
+    </div>
+    <div id="heatmap" class="grid grid-cols-12 gap-1 sm:gap-2"></div>
+    <p class="text-xs text-gray-400 mt-3">⭐ London–New York overlap — eng yuqori likvidlik davri</p>
+  </section>
+
+  <!-- JUFTLIKLAR BO'YICHA -->
+  <section class="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm">
+    <h3 class="font-bold mb-3">Instrument bo'yicha eng yaxshi vaqtlar</h3>
+    <div class="flex flex-wrap gap-2 mb-4" id="instrumentFilter"></div>
+    <div id="instrumentList" class="space-y-2"></div>
+  </section>
+
+</main>
+
+<footer class="text-center text-xs text-gray-400 py-6">
+  Ma'lumotlar taxminiy. Trading qarorlaringizni o'zingiz qabul qiling.
+</footer>
+
+<script>
+// ================== MA'LUMOTLAR ==================
+const SESSIONS = [
+  { name: 'Sydney',   startUTC: 22, endUTC: 7,  liquidity: 'low',    note: "Past likvidlik",                    color: 'gray'   },
+  { name: 'Tokyo',    startUTC: 0,  endUTC: 9,  liquidity: 'medium', note: "Osiyo juftliklari (JPY, AUD)",       color: 'yellow' },
+  { name: 'London',   startUTC: 7,  endUTC: 16, liquidity: 'high',   note: "Eng yuqori likvidlik",              color: 'green'  },
+  { name: 'New York', startUTC: 12, endUTC: 21, liquidity: 'high',   note: "Yuqori volatillik",                 color: 'green'  },
+];
+
+const INSTRUMENTS = [
+  { type: 'Forex',  pairs: ['EUR/USD', 'GBP/USD'], best: 'London + NY overlap (12:00–16:00 UTC)' },
+  { type: 'Forex',  pairs: ['USD/JPY', 'AUD/USD'], best: 'Tokyo + London overlap (07:00–09:00 UTC)' },
+  { type: 'Metall', pairs: ['XAU/USD (Oltin)'],    best: 'London ochilishi va NY (12:00–16:00 UTC)' },
+  { type: 'Indeks', pairs: ['US500', 'NAS100'],    best: 'New York (12:00–21:00 UTC)' },
+  { type: 'Kripto', pairs: ['BTC/USD'],            best: 'London + NY (12:00–16:00 UTC)' },
+];
+
+// ================== HOLAT ==================
+let tzOffset = 5;
+const tzNames = { 5: 'Toshkent', 0: 'UTC', 3: 'London', '-5': 'New York', 9: 'Tokyo' };
+
+// ================== YORDAMCHI ==================
+function pad(n){ return String(n).padStart(2,'0'); }
+
+function utcHourToLocal(h){
+  let local = (h + tzOffset) % 24;
+  if (local < 0) local += 24;
+  return local;
+}
+
+function formatHour(h){
+  return pad(h) + ':00';
+}
+
+// sessiya faolmi (UTC bo'yicha)
+function isSessionActive(session, utcHour){
+  if (session.startUTC < session.endUTC) {
+    return utcHour >= session.startUTC && utcHour < session.endUTC;
+  }
+  // kunni kesib o'tadigan (Sydney)
+  return utcHour >= session.startUTC || utcHour < session.endUTC;
+}
+
+// likvidlik darajasi (UTC soat)
+function liquidityAt(utcHour){
+  const london = utcHour >= 7 && utcHour < 16;
+  const ny = utcHour >= 12 && utcHour < 21;
+  const tokyo = utcHour >= 0 && utcHour < 9;
+  if (london && ny) return 'overlap';
+  if (london || ny) return 'high';
+  if (tokyo) return 'medium';
+  return 'low';
+}
+
+// ================== RENDER ==================
+function renderSessionTable(){
+  const tbody = document.getElementById('sessionTable');
+  const utcHour = new Date().getUTCHours();
+  tbody.innerHTML = SESSIONS.map(s => {
+    const active = isSessionActive(s, utcHour);
+    const start = formatHour(utcHourToLocal(s.startUTC));
+    const end   = formatHour(utcHourToLocal(s.endUTC));
+    const badge = active
+      ? `<span class="inline-flex items-center gap-1 text-green-600 dark:text-green-400 font-medium"><span class="pulse-dot"></span>Faol</span>`
+      : `<span class="text-gray-400">—</span>`;
+    return `
+      <tr class="${active ? 'bg-green-50 dark:bg-green-900/20' : ''}">
+        <td class="p-3 font-semibold flex items-center gap-2">${s.name} ${badge}</td>
+        <td class="p-3 font-mono">${start} – ${end}</td>
+        <td class="p-3 text-gray-600 dark:text-gray-300">${s.note}</td>
+      </tr>`;
+  }).join('');
+}
+
+function renderHeatmap(){
+  const container = document.getElementById('heatmap');
+  const utcNow = new Date().getUTCHours();
+  let html = '';
+  for (let utc = 0; utc < 24; utc++){
+    const local = utcHourToLocal(utc);
+    const liq = liquidityAt(utc);
+    let bg;
+    if (liq === 'overlap')      bg = 'bg-gradient-to-br from-green-400 to-emerald-600 text-white';
+    else if (liq === 'high')    bg = 'bg-green-500 text-white';
+    else if (liq === 'medium')  bg = 'bg-yellow-400 text-gray-800';
+    else                        bg = 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-300';
+    const isNow = utc === utcNow;
+    const ring = isNow ? 'ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-800' : '';
+    html += `
+      <div class="hour-block ${bg} ${ring} rounded-lg p-1.5 text-center text-xs font-mono cursor-default"
+           title="${formatHour(local)} (${liq})">
+        ${pad(local)}
+      </div>`;
+  }
+  container.innerHTML = html;
+}
+
+function renderInstruments(){
+  const filterEl = document.getElementById('instrumentFilter');
+  const types = ['Hammasi', ...new Set(INSTRUMENTS.map(i => i.type))];
+  filterEl.innerHTML = types.map((t, i) =>
+    `<button class="inst-btn text-sm px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 ${i===0?'bg-brand-500 text-white border-brand-500':''}" data-type="${t}">${t}</button>`
+  ).join('');
+
+  document.querySelectorAll('.inst-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.inst-btn').forEach(b => {
+        b.classList.remove('bg-brand-500','text-white','border-brand-500');
+        b.classList.add('border-gray-200','dark:border-gray-600');
+      });
+      btn.classList.add('bg-brand-500','text-white','border-brand-500');
+      btn.classList.remove('border-gray-200','dark:border-gray-600');
+      renderInstrumentList(btn.dataset.type);
+    });
+  });
+
+  renderInstrumentList('Hammasi');
+}
+
+function renderInstrumentList(type){
+  const list = document.getElementById('instrumentList');
+  const items = type === 'Hammasi' ? INSTRUMENTS : INSTRUMENTS.filter(i => i.type === type);
+  list.innerHTML = items.map(i => `
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-xl bg-gray-50 dark:bg-gray-700/50">
+      <div>
+        <span class="text-xs uppercase tracking-wide text-brand-600 dark:text-brand-500 font-semibold">${i.type}</span>
+        <p class="font-semibold">${i.pairs.join(', ')}</p>
+      </div>
+      <p class="text-sm text-gray-600 dark:text-gray-300">⏰ ${i.best}</p>
+    </div>
+  `).join('');
+}
+
+function updateActiveSession(){
+  const utcHour = new Date().getUTCHours();
+  const active = SESSIONS.filter(s => isSessionActive(s, utcHour)).map(s => s.name);
+  const overlap = (utcHour >= 12 && utcHour < 16);
+  let text = active.join(' + ') || 'Sessiyalar orasida';
+  if (overlap) text = 'London + New York overlap ⭐';
+  document.getElementById('activeSessionName').textContent = text;
+}
+
+function updateClock(){
+  const now = new Date();
+  const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
+  const local = new Date(utcMs + tzOffset * 3600000);
+  document.getElementById('clock').textContent =
+    `${pad(local.getHours())}:${pad(local.getMinutes())}:${pad(local.getSeconds())}`;
+  document.getElementById('tzLabel').textContent = tzNames[tzOffset];
+  document.querySelectorAll('.tz-inline').forEach(el => el.textContent = tzNames[tzOffset]);
+}
+
+// ================== TEMA ==================
+function initTheme(){
+  const saved = localStorage.getItem('theme');
+  if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+    document.documentElement.classList.add('dark');
+  }
+  updateThemeBtn();
+}
+function updateThemeBtn(){
+  document.getElementById('themeToggle').textContent =
+    document.documentElement.classList.contains('dark') ? '☀️' : '🌙';
+}
+document.getElementById('themeToggle').addEventListener('click', () => {
+  const isDark = document.documentElement.classList.toggle('dark');
+  localStorage.setItem('theme', isDark ? 'dark' : 'light');
+  updateThemeBtn();
+});
+
+// ================== TZ SELECT ==================
+document.getElementById('tzSelect').addEventListener('change', (e) => {
+  tzOffset = parseInt(e.target.value);
+  localStorage.setItem('tzOffset', tzOffset);
+  refreshAll();
+});
+
+// ================== REFRESH ==================
+function refreshAll(){
+  renderSessionTable();
+  renderHeatmap();
+  updateActiveSession();
+  updateClock();
+}
+
+// ================== INIT ==================
+(function init(){
+  initTheme();
+  const savedTz = localStorage.getItem('tzOffset');
+  if (savedTz !== null) {
+    tzOffset = parseInt(savedTz);
+    document.getElementById('tzSelect').value = savedTz;
+  }
+  renderInstruments();
+  refreshAll();
+  setInterval(refreshAll, 1000);
+})();
+</script>
+</body>
+</html>
