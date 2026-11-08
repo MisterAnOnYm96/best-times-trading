@@ -17,21 +17,6 @@
     }
   }
 </script>
-<style>
-  .hour-block { transition: all .2s ease; }
-  .hour-block:hover { transform: translateY(-3px); }
-  .session-bar { transition: width .4s ease; }
-  .pulse-dot {
-    display:inline-block; width:10px; height:10px; border-radius:50%;
-    background:#22c55e; box-shadow:0 0 0 0 rgba(34,197,94,.7);
-    animation: pulse 1.8s infinite;
-  }
-  @keyframes pulse {
-    0% { box-shadow: 0 0 0 0 rgba(34,197,94,.7); }
-    70% { box-shadow: 0 0 0 10px rgba(34,197,94,0); }
-    100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
-  }
-</style>
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-colors">
 
@@ -53,40 +38,6 @@
 </header>
 
 <main class="max-w-6xl mx-auto px-4 py-6 space-y-8">
-
-  <!-- HERO -->
-  <section class="text-center">
-    <h2 class="text-2xl md:text-3xl font-extrabold mb-2">Eng yaxshi trading vaqtlari</h2>
-    <p class="text-gray-500 dark:text-gray-400">Bozor seanslari va eng yuqori likvidlik davrlari</p>
-    <div id="activeSession" class="mt-4 inline-flex items-center gap-2 bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 px-4 py-2 rounded-full text-sm font-medium">
-      <span class="pulse-dot"></span> Hozir faol: <span id="activeSessionName">—</span>
-    </div>
-  </section>
-
-  <!-- HOZIRGI VAQT -->
-  <section class="bg-white dark:bg-gray-800 rounded-2xl p-4 text-center shadow-sm">
-    <p class="text-sm text-gray-500 dark:text-gray-400">Hozirgi vaqt (<span id="tzLabel">Toshkent</span>)</p>
-    <p id="clock" class="text-2xl font-mono font-bold mt-1">--:--:--</p>
-  </section>
-
-  <!-- SESSIYALAR JADVALI -->
-  <section class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm overflow-hidden">
-    <div class="p-4 border-b border-gray-100 dark:border-gray-700">
-      <h3 class="font-bold">Asosiy sessiyalar</h3>
-    </div>
-    <div class="overflow-x-auto">
-      <table class="w-full text-sm">
-        <thead class="bg-gray-50 dark:bg-gray-700/50 text-left">
-          <tr>
-            <th class="p-3">Sessiya</th>
-            <th class="p-3">Vaqt (<span class="tz-inline">Toshkent</span>)</th>
-            <th class="p-3">Xususiyat</th>
-          </tr>
-        </thead>
-        <tbody id="sessionTable" class="divide-y divide-gray-100 dark:divide-gray-700"></tbody>
-      </table>
-    </div>
-  </section>
 
   <!-- 24 SOATLIK HEATMAP -->
   <section class="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm">
@@ -117,13 +68,6 @@
 
 <script>
 // ================== MA'LUMOTLAR ==================
-const SESSIONS = [
-  { name: 'Sydney',   startUTC: 22, endUTC: 7,  liquidity: 'low',    note: "Past likvidlik",                    color: 'gray'   },
-  { name: 'Tokyo',    startUTC: 0,  endUTC: 9,  liquidity: 'medium', note: "Osiyo juftliklari (JPY, AUD)",       color: 'yellow' },
-  { name: 'London',   startUTC: 7,  endUTC: 16, liquidity: 'high',   note: "Eng yuqori likvidlik",              color: 'green'  },
-  { name: 'New York', startUTC: 12, endUTC: 21, liquidity: 'high',   note: "Yuqori volatillik",                 color: 'green'  },
-];
-
 const INSTRUMENTS = [
   { type: 'Forex',  pairs: ['EUR/USD', 'GBP/USD'], best: 'London + NY overlap (12:00–16:00 UTC)' },
   { type: 'Forex',  pairs: ['USD/JPY', 'AUD/USD'], best: 'Tokyo + London overlap (07:00–09:00 UTC)' },
@@ -134,7 +78,6 @@ const INSTRUMENTS = [
 
 // ================== HOLAT ==================
 let tzOffset = 5;
-const tzNames = { 5: 'Toshkent', 0: 'UTC', 3: 'London', '-5': 'New York', 9: 'Tokyo' };
 
 // ================== YORDAMCHI ==================
 function pad(n){ return String(n).padStart(2,'0'); }
@@ -145,18 +88,7 @@ function utcHourToLocal(h){
   return local;
 }
 
-function formatHour(h){
-  return pad(h) + ':00';
-}
-
-// sessiya faolmi (UTC bo'yicha)
-function isSessionActive(session, utcHour){
-  if (session.startUTC < session.endUTC) {
-    return utcHour >= session.startUTC && utcHour < session.endUTC;
-  }
-  // kunni kesib o'tadigan (Sydney)
-  return utcHour >= session.startUTC || utcHour < session.endUTC;
-}
+function formatHour(h){ return pad(h) + ':00'; }
 
 // likvidlik darajasi (UTC soat)
 function liquidityAt(utcHour){
@@ -170,25 +102,6 @@ function liquidityAt(utcHour){
 }
 
 // ================== RENDER ==================
-function renderSessionTable(){
-  const tbody = document.getElementById('sessionTable');
-  const utcHour = new Date().getUTCHours();
-  tbody.innerHTML = SESSIONS.map(s => {
-    const active = isSessionActive(s, utcHour);
-    const start = formatHour(utcHourToLocal(s.startUTC));
-    const end   = formatHour(utcHourToLocal(s.endUTC));
-    const badge = active
-      ? `<span class="inline-flex items-center gap-1 text-green-600 dark:text-green-400 font-medium"><span class="pulse-dot"></span>Faol</span>`
-      : `<span class="text-gray-400">—</span>`;
-    return `
-      <tr class="${active ? 'bg-green-50 dark:bg-green-900/20' : ''}">
-        <td class="p-3 font-semibold flex items-center gap-2">${s.name} ${badge}</td>
-        <td class="p-3 font-mono">${start} – ${end}</td>
-        <td class="p-3 text-gray-600 dark:text-gray-300">${s.note}</td>
-      </tr>`;
-  }).join('');
-}
-
 function renderHeatmap(){
   const container = document.getElementById('heatmap');
   const utcNow = new Date().getUTCHours();
@@ -248,25 +161,6 @@ function renderInstrumentList(type){
   `).join('');
 }
 
-function updateActiveSession(){
-  const utcHour = new Date().getUTCHours();
-  const active = SESSIONS.filter(s => isSessionActive(s, utcHour)).map(s => s.name);
-  const overlap = (utcHour >= 12 && utcHour < 16);
-  let text = active.join(' + ') || 'Sessiyalar orasida';
-  if (overlap) text = 'London + New York overlap ⭐';
-  document.getElementById('activeSessionName').textContent = text;
-}
-
-function updateClock(){
-  const now = new Date();
-  const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
-  const local = new Date(utcMs + tzOffset * 3600000);
-  document.getElementById('clock').textContent =
-    `${pad(local.getHours())}:${pad(local.getMinutes())}:${pad(local.getSeconds())}`;
-  document.getElementById('tzLabel').textContent = tzNames[tzOffset];
-  document.querySelectorAll('.tz-inline').forEach(el => el.textContent = tzNames[tzOffset]);
-}
-
 // ================== TEMA ==================
 function initTheme(){
   const saved = localStorage.getItem('theme');
@@ -289,16 +183,8 @@ document.getElementById('themeToggle').addEventListener('click', () => {
 document.getElementById('tzSelect').addEventListener('change', (e) => {
   tzOffset = parseInt(e.target.value);
   localStorage.setItem('tzOffset', tzOffset);
-  refreshAll();
-});
-
-// ================== REFRESH ==================
-function refreshAll(){
-  renderSessionTable();
   renderHeatmap();
-  updateActiveSession();
-  updateClock();
-}
+});
 
 // ================== INIT ==================
 (function init(){
@@ -309,8 +195,9 @@ function refreshAll(){
     document.getElementById('tzSelect').value = savedTz;
   }
   renderInstruments();
-  refreshAll();
-  setInterval(refreshAll, 1000);
+  renderHeatmap();
+  // har daqiqada heatmap'dagi "hozir" belgisini yangilash
+  setInterval(renderHeatmap, 60000);
 })();
 </script>
 </body>
