@@ -10,13 +10,95 @@
     darkMode: 'class',
     theme: {
       extend: {
-        colors: {
-          brand: { 500: '#3b82f6', 600: '#2563eb' }
-        }
+        colors: { brand: { 500: '#3b82f6', 600: '#2563eb' } }
       }
     }
   }
 </script>
+<style>
+  /* ===== TIMELINE RULER ===== */
+  .ruler-wrap {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 120px;
+    padding: 8px 0 0 0;
+    overflow: visible;
+  }
+  .ruler-seg {
+    flex: 1 1 0;
+    min-width: 0;
+    height: 70px;
+    border-radius: 6px 6px 0 0;
+    position: relative;
+    cursor: pointer;
+    transition: all .35s cubic-bezier(.4,0,.2,1);
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    padding-bottom: 4px;
+    font-family: ui-monospace, monospace;
+    font-size: 11px;
+    color: #fff;
+    user-select: none;
+  }
+  .ruler-seg:hover { filter: brightness(1.08); }
+
+  /* kattalashgan segment */
+  .ruler-seg.active {
+    flex: 4 1 0;              /* kengayadi */
+    height: 110px;            /* balandroq */
+    z-index: 10;
+    box-shadow: 0 6px 24px rgba(0,0,0,.25);
+    border-radius: 10px 10px 0 0;
+    font-size: 14px;
+    font-weight: 700;
+  }
+  /* kichraygan segmentlar (boshqasi tanlanganda) */
+  .ruler-wrap.has-active .ruler-seg:not(.active) {
+    flex: 0.55 1 0;
+    height: 50px;
+    opacity: .55;
+    font-size: 9px;
+  }
+  /* hozirgi soat belgisi */
+  .ruler-seg.now::after {
+    content: '';
+    position: absolute;
+    bottom: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59,130,246,.25);
+  }
+  /* shkala (lineyka) chizig'i */
+  .ruler-base {
+    position: relative;
+    height: 1px;
+    background: currentColor;
+    opacity: .25;
+    margin-top: 0;
+  }
+  .ruler-base .tick {
+    position: absolute;
+    top: -6px;
+    width: 1px;
+    height: 6px;
+    background: currentColor;
+    opacity: .5;
+  }
+  .ruler-base .tick.major { height: 12px; top: -12px; opacity: .8; }
+
+  /* ranglar */
+  .liq-overlap { background: linear-gradient(180deg,#34d399,#059669); }
+  .liq-high    { background: #22c55e; }
+  .liq-medium  { background: #facc15; color:#3f3f46; }
+  .liq-low     { background: #cbd5e1; color:#64748b; }
+  .dark .liq-low { background: #475569; color:#cbd5e1; }
+</style>
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-colors">
 
@@ -39,17 +121,27 @@
 
 <main class="max-w-6xl mx-auto px-4 py-6 space-y-8">
 
-  <!-- 24 SOATLIK HEATMAP -->
-  <section class="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm">
+  <!-- 24 SOATLIK TIMELINE RULER -->
+  <section class="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm text-gray-800 dark:text-gray-100">
     <div class="flex items-center justify-between mb-3">
-      <h3 class="font-bold">24 soatlik likvidlik</h3>
+      <h3 class="font-bold">24 soatlik likvidlik shkalasi</h3>
       <div class="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+        <span><span class="inline-block w-3 h-3 rounded bg-gradient-to-b from-green-400 to-emerald-600"></span> Overlap</span>
         <span><span class="inline-block w-3 h-3 rounded bg-green-500"></span> Yuqori</span>
         <span><span class="inline-block w-3 h-3 rounded bg-yellow-400"></span> O'rta</span>
         <span><span class="inline-block w-3 h-3 rounded bg-gray-300 dark:bg-gray-600"></span> Past</span>
       </div>
     </div>
-    <div id="heatmap" class="grid grid-cols-12 gap-1 sm:gap-2"></div>
+
+    <!-- RULER -->
+    <div id="rulerWrap" class="ruler-wrap"></div>
+    <div class="ruler-base" id="rulerBase"></div>
+
+    <!-- ma'lumot paneli -->
+    <div id="segInfo" class="mt-4 text-sm bg-gray-50 dark:bg-gray-700/40 rounded-xl px-4 py-3 min-h-[52px] text-gray-600 dark:text-gray-300">
+      Soatni tanlang — likvidlik va tavsiya ko'rsatiladi.
+    </div>
+
     <p class="text-xs text-gray-400 mt-3">⭐ London–New York overlap — eng yuqori likvidlik davri</p>
   </section>
 
@@ -78,19 +170,15 @@ const INSTRUMENTS = [
 
 // ================== HOLAT ==================
 let tzOffset = 5;
+let selectedHour = null; // foydalanuvchi tanlagan soat (UTC)
 
 // ================== YORDAMCHI ==================
 function pad(n){ return String(n).padStart(2,'0'); }
-
 function utcHourToLocal(h){
   let local = (h + tzOffset) % 24;
   if (local < 0) local += 24;
   return local;
 }
-
-function formatHour(h){ return pad(h) + ':00'; }
-
-// likvidlik darajasi (UTC soat)
 function liquidityAt(utcHour){
   const london = utcHour >= 7 && utcHour < 16;
   const ny = utcHour >= 12 && utcHour < 21;
@@ -100,31 +188,79 @@ function liquidityAt(utcHour){
   if (tokyo) return 'medium';
   return 'low';
 }
+function liquidityLabel(liq){
+  return { overlap: 'Overlap ⭐', high: 'Yuqori', medium: "O'rta", low: 'Past' }[liq];
+}
 
-// ================== RENDER ==================
-function renderHeatmap(){
-  const container = document.getElementById('heatmap');
+// ================== RENDER: RULER ==================
+function renderRuler(){
+  const wrap = document.getElementById('rulerWrap');
+  const base = document.getElementById('rulerBase');
   const utcNow = new Date().getUTCHours();
-  let html = '';
+
+  // segmentlar
+  wrap.innerHTML = '';
   for (let utc = 0; utc < 24; utc++){
     const local = utcHourToLocal(utc);
     const liq = liquidityAt(utc);
-    let bg;
-    if (liq === 'overlap')      bg = 'bg-gradient-to-br from-green-400 to-emerald-600 text-white';
-    else if (liq === 'high')    bg = 'bg-green-500 text-white';
-    else if (liq === 'medium')  bg = 'bg-yellow-400 text-gray-800';
-    else                        bg = 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-300';
-    const isNow = utc === utcNow;
-    const ring = isNow ? 'ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-800' : '';
-    html += `
-      <div class="hour-block ${bg} ${ring} rounded-lg p-1.5 text-center text-xs font-mono cursor-default"
-           title="${formatHour(local)} (${liq})">
-        ${pad(local)}
-      </div>`;
+    const seg = document.createElement('div');
+    seg.className = `ruler-seg liq-${liq}` + (utc === utcNow ? ' now' : '');
+    if (selectedHour !== null && utc === selectedHour) seg.classList.add('active');
+    seg.dataset.utc = utc;
+    seg.title = `${pad(local)}:00 — ${liquidityLabel(liq)}`;
+    seg.textContent = pad(local);
+    seg.addEventListener('click', () => {
+      selectedHour = (selectedHour === utc) ? null : utc;
+      renderRuler();
+      renderSegInfo();
+    });
+    wrap.appendChild(seg);
   }
-  container.innerHTML = html;
+  // "has-active" klassi — boshqalarni kichraytirish
+  if (selectedHour !== null) wrap.classList.add('has-active');
+  else wrap.classList.remove('has-active');
+
+  // lineyka (shkala) ticklari
+  let ticks = '';
+  for (let i = 0; i <= 24; i++){
+    const left = (i / 24) * 100;
+    const major = (i % 3 === 0);
+    ticks += `<div class="tick ${major ? 'major' : ''}" style="left:${left}%"></div>`;
+  }
+  base.innerHTML = ticks;
 }
 
+// ================== RENDER: MA'LUMOT PANELI ==================
+function renderSegInfo(){
+  const info = document.getElementById('segInfo');
+  if (selectedHour === null){
+    info.innerHTML = 'Soatni tanlang — likvidlik va tavsiya ko\'rsatiladi.';
+    return;
+  }
+  const local = utcHourToLocal(selectedHour);
+  const liq = liquidityAt(selectedHour);
+  const colors = {
+    overlap: 'text-emerald-600 dark:text-emerald-400',
+    high:    'text-green-600 dark:text-green-400',
+    medium:  'text-yellow-600 dark:text-yellow-400',
+    low:     'text-gray-500 dark:text-gray-400'
+  };
+  let advice = {
+    overlap: 'Eng yaxshi vaqt! London va NY birga ochiq — yuqori likvidlik, tor spread.',
+    high:    'Yaxshi vaqt — asosiy sessiya faol.',
+    medium:  'O\'rtacha — Osiyo sessiyasi, JPY/AUD juftliklariga mos.',
+    low:     'Past likvidlik — ehtiyot bo\'ling, spread keng bo\'lishi mumkin.'
+  }[liq];
+  info.innerHTML = `
+    <div class="flex flex-wrap items-center gap-x-6 gap-y-1">
+      <span class="font-mono font-bold text-base">${pad(local)}:00 – ${pad((local+1)%24)}:00</span>
+      <span class="text-xs text-gray-400">(UTC ${pad(selectedHour)}:00)</span>
+      <span class="font-semibold ${colors[liq]}">${liquidityLabel(liq)}</span>
+      <span class="text-gray-600 dark:text-gray-300">${advice}</span>
+    </div>`;
+}
+
+// ================== INSTRUMENTLAR ==================
 function renderInstruments(){
   const filterEl = document.getElementById('instrumentFilter');
   const types = ['Hammasi', ...new Set(INSTRUMENTS.map(i => i.type))];
@@ -143,10 +279,8 @@ function renderInstruments(){
       renderInstrumentList(btn.dataset.type);
     });
   });
-
   renderInstrumentList('Hammasi');
 }
-
 function renderInstrumentList(type){
   const list = document.getElementById('instrumentList');
   const items = type === 'Hammasi' ? INSTRUMENTS : INSTRUMENTS.filter(i => i.type === type);
@@ -183,7 +317,9 @@ document.getElementById('themeToggle').addEventListener('click', () => {
 document.getElementById('tzSelect').addEventListener('change', (e) => {
   tzOffset = parseInt(e.target.value);
   localStorage.setItem('tzOffset', tzOffset);
-  renderHeatmap();
+  selectedHour = null; // mintaqa o'zgarsa tanlovni tozalaymiz
+  renderRuler();
+  renderSegInfo();
 });
 
 // ================== INIT ==================
@@ -195,9 +331,9 @@ document.getElementById('tzSelect').addEventListener('change', (e) => {
     document.getElementById('tzSelect').value = savedTz;
   }
   renderInstruments();
-  renderHeatmap();
-  // har daqiqada heatmap'dagi "hozir" belgisini yangilash
-  setInterval(renderHeatmap, 60000);
+  renderRuler();
+  renderSegInfo();
+  setInterval(renderRuler, 60000); // har daqiqada "now" belgisini yangilash
 })();
 </script>
 </body>
