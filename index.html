@@ -24,6 +24,8 @@
     overflow: visible; 
     position: relative;
     margin-bottom: 6px; 
+    touch-action: none; /* Mobil brauzerda ekran aylanib ketmasligi uchun */
+    user-select: none;
   }
   
   .ruler-seg {
@@ -198,14 +200,6 @@ function renderRuler(){
     seg.dataset.utc = utc;
     seg.title = formatTimeInterval(utc);
     
-    seg.addEventListener('click', () => {
-      selectedHour = (selectedHour === utc) ? null : utc;
-      renderRuler();
-      updateTimeBadge();
-      requestAnimationFrame(() => {
-        setTimeout(updateNowLine, 10);
-      });
-    });
     wrap.appendChild(seg);
   }
   
@@ -261,6 +255,73 @@ function updateNowLine(){
   }
 }
 
+// ================== DRAG / SWIPE MANTIG'I ==================
+const rulerWrap = document.getElementById('rulerWrap');
+let isDragging = false;
+let lastSelectedHour = null;
+
+// Yordamchi: ekrandagi X koordinataga qarab qaysi soat ekanligini aniqlash
+function getHourFromX(clientX) {
+  const segments = document.querySelectorAll('.ruler-seg');
+  for (let i = 0; i < segments.length; i++) {
+    const rect = segments[i].getBoundingClientRect();
+    if (clientX >= rect.left && clientX <= rect.right) {
+      return parseInt(segments[i].dataset.utc);
+    }
+  }
+  // Agar chetga chiqib ketsa, eng yaqinini olish
+  if (clientX < segments[0].getBoundingClientRect().left) return 0;
+  if (clientX > segments[23].getBoundingClientRect().right) return 23;
+  return null;
+}
+
+// Surishni boshlash
+function startDrag(e) {
+  isDragging = true;
+  const x = e.touches ? e.touches[0].clientX : e.clientX;
+  const hour = getHourFromX(x);
+  
+  if (hour !== null) {
+    selectedHour = hour;
+    lastSelectedHour = hour;
+    renderRuler();
+    updateTimeBadge();
+    requestAnimationFrame(() => setTimeout(updateNowLine, 10));
+  }
+}
+
+// Surish jarayoni
+function onDrag(e) {
+  if (!isDragging) return;
+  // Mobil brauzerda scroll bo'lib ketmasligi uchun
+  if (e.cancelable) e.preventDefault(); 
+  
+  const x = e.touches ? e.touches[0].clientX : e.clientX;
+  const hour = getHourFromX(x);
+  
+  if (hour !== null && hour !== lastSelectedHour) {
+    selectedHour = hour;
+    lastSelectedHour = hour;
+    renderRuler();
+    updateTimeBadge();
+    requestAnimationFrame(() => setTimeout(updateNowLine, 10));
+  }
+}
+
+// Surishni tugatish
+function endDrag() {
+  isDragging = false;
+}
+
+// Event Listener'larni ulash (Sichqoncha va Barmoq uchun)
+rulerWrap.addEventListener('mousedown', startDrag);
+rulerWrap.addEventListener('mousemove', onDrag);
+window.addEventListener('mouseup', endDrag);
+
+rulerWrap.addEventListener('touchstart', startDrag, { passive: false });
+rulerWrap.addEventListener('touchmove', onDrag, { passive: false });
+window.addEventListener('touchend', endDrag);
+
 // ================== INSTRUMENTLAR ==================
 function renderInstruments(){
   const filterEl = document.getElementById('instrumentFilter');
@@ -283,7 +344,6 @@ function renderInstruments(){
   renderInstrumentList('Hammasi');
 }
 
-// To'g'rilangan funksiya: Telefonda ham yonma-yon turishi uchun
 function renderInstrumentList(type){
   const list = document.getElementById('instrumentList');
   const items = type === 'Hammasi' ? INSTRUMENTS : INSTRUMENTS.filter(i => i.type === type);
@@ -294,7 +354,6 @@ function renderInstrumentList(type){
       timeStr += `<br><span class="text-xs text-gray-500">va</span> ${formatTimeInterval(i.utcStart2)}`;
     }
 
-    // flex-row va ml-auto qo'shildi
     return `
       <div class="flex flex-row items-center justify-between gap-3 p-4 rounded-xl bg-gray-700/50 border border-gray-700">
         <div class="min-w-0 flex-1">
