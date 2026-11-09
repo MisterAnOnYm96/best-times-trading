@@ -88,7 +88,6 @@
   .sheet-content { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
 </style>
 </head>
-<!-- overflow-hidden olib tashlandi (sahifa scroll bo'lishi va refresh ishlashi uchun) -->
 <body class="bg-gray-900 text-gray-100 transition-colors">
 
 <!-- HEADER -->
@@ -114,7 +113,6 @@
   </div>
 </header>
 
-<!-- main dan overflow va h-balandlik olib tashlandi, shunda sahifa tabiiy scroll bo'ladi -->
 <main class="max-w-6xl mx-auto px-4 py-6 space-y-8">
 
   <!-- KUNLIK TIMELINE RULER -->
@@ -163,7 +161,6 @@
   <div id="menuOverlay" class="absolute inset-0 bg-black/60 opacity-0 sheet-overlay pointer-events-none"></div>
   <div id="menuContent" class="absolute bottom-0 left-0 right-0 bg-gray-800 rounded-t-3xl p-5 transform translate-y-full sheet-content pointer-events-auto shadow-2xl border-t border-gray-700 max-h-[90vh] flex flex-col">
     
-    <!-- Sarlavha olib tashlandi. Endi to'g'ridan-to'g'ri qatorlar boshlanadi -->
     <div id="timeRowsContainer" class="flex flex-col gap-2 mb-4 overflow-y-auto flex-1 pt-2">
       <!-- JS tomonidan to'ldiriladi -->
     </div>
@@ -317,20 +314,22 @@ function closeMenuSheet() {
   setTimeout(() => menuSheet.classList.add('pointer-events-none'), 300);
 }
 
-// Katakchalar balandligi kichraytirildi (p-1.5, text-sm)
+// Katakchalar mutanosibligi va balandligi to'g'rilandi
 function renderTimeRows() {
   const uniquePairs = [...new Set(INSTRUMENTS.map(i => i.pair))];
   
   timeRowsContainer.innerHTML = tempTimeRows.map((row, index) => {
     return `
       <div class="flex gap-2 items-center">
-        <select class="flex-1 bg-gray-700 border border-gray-600 text-gray-200 text-sm rounded-lg py-1.5 px-2 outline-none" data-index="${index}" data-field="pair">
+        <!-- Instrument qatori (kichikroq, w-28) -->
+        <select class="w-28 bg-gray-700 border border-gray-600 text-gray-200 text-sm rounded-lg py-1.5 px-2 outline-none truncate" data-index="${index}" data-field="pair">
           ${uniquePairs.map(p => `<option value="${p}" ${row.pair === p ? 'selected' : ''}>${p}</option>`).join('')}
         </select>
         
-        <input type="text" class="w-32 bg-gray-700 border border-gray-600 text-gray-200 text-sm rounded-lg py-1.5 px-2 outline-none text-center font-mono" placeholder="06:00 - 08:00" value="${row.time}" data-index="${index}" data-field="time">
+        <!-- Vaqt oralig'i qatori (uzunroq, flex-1) -->
+        <input type="text" class="flex-1 bg-gray-700 border border-gray-600 text-gray-200 text-sm rounded-lg py-1.5 px-2 outline-none text-center font-mono" placeholder="06:00 - 08:00" value="${row.time}" data-index="${index}" data-field="time">
         
-        <button class="text-red-400 hover:text-red-300 p-1" onclick="removeTimeRow(${index})">
+        <button class="text-red-400 hover:text-red-300 p-1 flex-shrink-0" onclick="removeTimeRow(${index})">
           <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
         </button>
       </div>
