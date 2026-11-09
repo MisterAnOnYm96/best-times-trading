@@ -89,7 +89,7 @@
   
   select:focus, input:focus { outline: none; }
 
-  /* Pulse animatsiyasi (Faol sessiya uchun) */
+  /* Pulse animatsiyasi */
   .pulse-dot-active {
     box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
     animation: pulse-green 2s infinite;
@@ -137,8 +137,9 @@
     </div>
   </section>
 
-  <section class="space-y-3">
-    <div id="instrumentList" class="space-y-3"></div>
+  <!-- Oraliqlar minimal holatga keltirildi (space-y-1.5) -->
+  <section class="space-y-1.5">
+    <div id="instrumentList" class="space-y-1.5"></div>
   </section>
 </main>
 
@@ -180,7 +181,6 @@ let INSTRUMENTS = [
 
 let tzOffset = -new Date().getTimezoneOffset() / 60; 
 let selectedHour = null;
-let expandedInstrument = null; 
 let currentFilterTypes = ['Forex', 'Metall', 'Indeks']; 
 
 function pad(n){ return String(Math.floor(n)).padStart(2,'0'); }
@@ -499,10 +499,9 @@ function getHourFromX(clientX) {
   return null;
 }
 
-// TUZATILGAN JOY: e.preventDefault() qo'shildi
 function startDrag(e) {
   if (e.type === 'touchstart') {
-    e.preventDefault(); // Bu "soxta" mousedown hodisasini to'xtatadi!
+    e.preventDefault();
   }
   
   isDragging = true;
@@ -541,11 +540,11 @@ function endDrag() { isDragging = false; }
 rulerWrap.addEventListener('mousedown', startDrag);
 rulerWrap.addEventListener('mousemove', onDrag);
 window.addEventListener('mouseup', endDrag);
-
 rulerWrap.addEventListener('touchstart', startDrag, { passive: false });
 rulerWrap.addEventListener('touchmove', onDrag, { passive: false });
 window.addEventListener('touchend', endDrag);
 
+// ASOSIY EKRAN: Faqat indikator, nom va vaqt (To'liq nom olib tashlandi)
 function renderInstrumentList(){
   const list = document.getElementById('instrumentList');
   const items = INSTRUMENTS.filter(i => currentFilterTypes.includes(i.type));
@@ -560,7 +559,6 @@ function renderInstrumentList(){
 
   list.innerHTML = items.map((i) => {
     let timeStr = i.times.map(t => `<div>${t}</div>`).join('');
-    const isExpanded = expandedInstrument === i.pair;
 
     let isActive = false;
     if (i.times && i.times.length > 0) {
@@ -576,33 +574,23 @@ function renderInstrumentList(){
       ? `<span class="w-2.5 h-2.5 bg-green-500 rounded-full mr-2 flex-shrink-0 pulse-dot-active"></span>` 
       : `<span class="w-2.5 h-2.5 bg-gray-500 rounded-full mr-2 flex-shrink-0"></span>`;
 
+    // p-4 -> px-3 py-2 (ichki bo'shliqlar kichraytirildi)
     return `
-      <div class="bg-gray-700/50 border border-gray-700 rounded-xl overflow-hidden transition-all duration-300">
-        <div class="inst-header flex flex-row items-center justify-between gap-3 p-4 cursor-pointer hover:bg-gray-700/80 transition-colors" data-pair="${i.pair}">
+      <div class="bg-gray-700/50 border border-gray-700 rounded-xl">
+        <div class="flex flex-row items-center justify-between gap-2 px-3 py-2">
           <div class="min-w-0 flex-1 flex items-center">
             ${indicatorHtml}
             <p class="font-bold text-base text-white truncate">${i.pair}</p>
           </div>
           <div class="flex-shrink-0">
-            <div class="flex flex-col text-sm font-mono font-bold text-gray-200 bg-gray-800 px-3 py-1.5 rounded-lg border border-gray-600">
+            <div class="flex flex-col text-sm font-mono font-bold text-gray-200 bg-gray-800 px-2 py-1 rounded-lg border border-gray-600">
               ${timeStr}
             </div>
           </div>
         </div>
-        <div class="inst-body px-4 overflow-hidden transition-all duration-300 ${isExpanded ? 'max-h-20 pb-4 opacity-100' : 'max-h-0 opacity-0'}">
-          <p class="text-sm text-gray-400 uppercase tracking-wide">${i.name}</p>
-        </div>
       </div>
     `;
   }).join('');
-
-  document.querySelectorAll('.inst-header').forEach(header => {
-    header.addEventListener('click', () => {
-      const pair = header.dataset.pair;
-      expandedInstrument = (expandedInstrument === pair) ? null : pair;
-      renderInstrumentList();
-    });
-  });
 }
 
 (function init(){
