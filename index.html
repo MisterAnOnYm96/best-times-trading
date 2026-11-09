@@ -137,9 +137,8 @@
     </div>
   </section>
 
-  <!-- Oraliqlar minimal holatga keltirildi (space-y-1.5) -->
-  <section class="space-y-1.5">
-    <div id="instrumentList" class="space-y-1.5"></div>
+  <section class="space-y-1">
+    <div id="instrumentList" class="space-y-1"></div>
   </section>
 </main>
 
@@ -169,14 +168,15 @@
 </div>
 
 <script>
+// name o'zgaruvchisi butunlay olib tashlandi
 let INSTRUMENTS = [
-  { type: 'Forex', pair: 'EURUSD', name: 'EURO / US DOLLAR', times: ['01:00 - 01:59'] },
-  { type: 'Forex', pair: 'USDCAD', name: 'US DOLLAR / CANADIAN DOLLAR', times: ['12:00 - 12:59'] },
-  { type: 'Forex', pair: 'USDJPY', name: 'US DOLLAR / JAPANESE YEN', times: ['12:00 - 12:59'] },
-  { type: 'Forex', pair: 'GBPJPY', name: 'BRITISH POUND / JAPANESE YEN', times: ['04:00 - 04:59'] },
-  { type: 'Metall', pair: 'XAUUSD', name: 'GOLD', times: ['07:00 - 07:59'] },
-  { type: 'Indeks', pair: 'US30', name: 'DOW JONES', times: ['01:00 - 01:59', '11:30 - 12:29'] },
-  { type: 'Forex', pair: 'AUDUSD', name: 'AUSTRALIAN DOLLAR / US DOLLAR', times: ['23:00 - 23:59', '12:00 - 12:59'] },
+  { type: 'Forex', pair: 'EURUSD', times: ['01:00 - 01:59'] },
+  { type: 'Forex', pair: 'USDCAD', times: ['12:00 - 12:59'] },
+  { type: 'Forex', pair: 'USDJPY', times: ['12:00 - 12:59'] },
+  { type: 'Forex', pair: 'GBPJPY', times: ['04:00 - 04:59'] },
+  { type: 'Metall', pair: 'XAUUSD', times: ['07:00 - 07:59'] },
+  { type: 'Indeks', pair: 'US30', times: ['01:00 - 01:59', '11:30 - 12:29'] },
+  { type: 'Forex', pair: 'AUDUSD', times: ['23:00 - 23:59', '12:00 - 12:59'] },
 ];
 
 let tzOffset = -new Date().getTimezoneOffset() / 60; 
@@ -319,7 +319,8 @@ function openMenuSheet() {
   tempTimeRows = [];
   INSTRUMENTS.forEach(inst => {
     inst.times.forEach(time => {
-      tempTimeRows.push({ pair: inst.pair, name: inst.name, type: inst.type, time: time });
+      // name olib tashlandi
+      tempTimeRows.push({ pair: inst.pair, type: inst.type, time: time });
     });
   });
   renderTimeRows();
@@ -366,7 +367,7 @@ function renderTimeRows() {
         const inst = INSTRUMENTS.find(i => i.pair === val);
         tempTimeRows[index].pair = val;
         if (inst) {
-          tempTimeRows[index].name = inst.name;
+          // name yangilanishi olib tashlandi
           tempTimeRows[index].type = inst.type;
         }
       } else {
@@ -392,7 +393,7 @@ addTimeBtn.addEventListener('click', () => {
   if (tempTimeRows.length < 20) {
     tempTimeRows.push({ 
       pair: defaultPair, 
-      name: inst ? inst.name : '', 
+      // name olib tashlandi
       type: inst ? inst.type : 'Forex', 
       time: '' 
     });
@@ -410,7 +411,8 @@ saveMenuBtn.addEventListener('click', () => {
   tempTimeRows.forEach(row => {
     if (!row.time.trim()) return;
     if (!grouped[row.pair]) {
-      grouped[row.pair] = { type: row.type, pair: row.pair, name: row.name, times: [] };
+      // name olib tashlandi
+      grouped[row.pair] = { type: row.type, pair: row.pair, times: [] };
     }
     grouped[row.pair].times.push(row.time);
   });
@@ -544,7 +546,6 @@ rulerWrap.addEventListener('touchstart', startDrag, { passive: false });
 rulerWrap.addEventListener('touchmove', onDrag, { passive: false });
 window.addEventListener('touchend', endDrag);
 
-// ASOSIY EKRAN: Faqat indikator, nom va vaqt (To'liq nom olib tashlandi)
 function renderInstrumentList(){
   const list = document.getElementById('instrumentList');
   const items = INSTRUMENTS.filter(i => currentFilterTypes.includes(i.type));
@@ -574,7 +575,6 @@ function renderInstrumentList(){
       ? `<span class="w-2.5 h-2.5 bg-green-500 rounded-full mr-2 flex-shrink-0 pulse-dot-active"></span>` 
       : `<span class="w-2.5 h-2.5 bg-gray-500 rounded-full mr-2 flex-shrink-0"></span>`;
 
-    // p-4 -> px-3 py-2 (ichki bo'shliqlar kichraytirildi)
     return `
       <div class="bg-gray-700/50 border border-gray-700 rounded-xl">
         <div class="flex flex-row items-center justify-between gap-2 px-3 py-2">
