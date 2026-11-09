@@ -18,7 +18,7 @@
   .ruler-wrap { 
     display: flex; 
     align-items: flex-end; 
-    gap: 2px; /* Ustunlar orasi */
+    gap: 2px; 
     height: 60px; 
     padding: 4px 0 0 0; 
     overflow: visible; 
@@ -75,8 +75,8 @@
     border-radius: 4px;
     z-index: 20;
     box-shadow: 0 0 6px rgba(59,130,246,.6);
-    /* Silliq o'tish uchun */
-    transition: left 0.35s cubic-bezier(.4,0,.2,1), width 0.35s cubic-bezier(.4,0,.2,1), opacity 0.35s;
+    /* Silliq siljish va kattalashish */
+    transition: left 0.35s cubic-bezier(.4,0,.2,1), width 0.35s cubic-bezier(.4,0,.2,1);
   }
 
   /* Ranglar */
@@ -89,7 +89,7 @@
 </head>
 <body class="bg-gray-900 text-gray-100 transition-colors">
 
-<!-- HEADER (Vaqt tanlash olib tashlandi) -->
+<!-- HEADER -->
 <header class="bg-gray-800 shadow-sm sticky top-0 z-30">
   <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
     <h1 class="font-bold text-lg">📊 Trading Times</h1>
@@ -114,7 +114,7 @@
     <!-- Ruler (Ustunlar) -->
     <div id="rulerWrap" class="ruler-wrap"></div>
     
-    <!-- Hozirgi vaqt / Tanlangan vaqt chizig'i -->
+    <!-- Hozirgi vaqt chizig'i -->
     <div class="now-line-container" id="baseContainer">
       <div id="nowLine" class="now-line"></div>
     </div>
@@ -146,7 +146,6 @@ const INSTRUMENTS = [
 ];
 
 // ================== HOLAT ==================
-// Foydalanuvchining brauzer vaqtini avtomatik aniqlash (daqiqalarda)
 let tzOffset = -new Date().getTimezoneOffset() / 60; 
 let selectedHour = null;
 
@@ -180,7 +179,7 @@ function renderRuler(){
     const liq = liquidityAt(utc);
     const seg = document.createElement('div');
     seg.className = `ruler-seg liq-${liq}`;
-    seg.id = `seg-${utc}`;
+    seg.id = `seg-${utc}`; // Har bir ustunga ID
     if (selectedHour !== null && utc === selectedHour) seg.classList.add('active');
     seg.dataset.utc = utc;
     seg.title = `${formatLocalTime(utc)} — ${formatLocalTime(utc+1)}`;
@@ -189,7 +188,10 @@ function renderRuler(){
       selectedHour = (selectedHour === utc) ? null : utc;
       renderRuler();
       updateTimeBadge();
-      updateNowLine();
+      // Render bo'lib bo'lishini kutib, keyin chiziqni yangilaymiz (animatsiya uchun)
+      requestAnimationFrame(() => {
+        setTimeout(updateNowLine, 10);
+      });
     });
     wrap.appendChild(seg);
   }
@@ -226,7 +228,9 @@ document.getElementById('timeBadge').addEventListener('click', () => {
     selectedHour = null;
     renderRuler();
     updateTimeBadge();
-    updateNowLine();
+    requestAnimationFrame(() => {
+      setTimeout(updateNowLine, 10);
+    });
   }
 });
 
@@ -234,40 +238,27 @@ document.getElementById('timeBadge').addEventListener('click', () => {
 function updateNowLine(){
   const line = document.getElementById('nowLine');
   const baseContainer = document.getElementById('baseContainer');
+  const now = new Date();
   
-  // Agar biror davr tanlangan bo'lsa
-  if (selectedHour !== null) {
-    const activeSeg = document.getElementById(`seg-${selectedHour}`);
+  // Hozirgi vaqt (UTC bo'yicha)
+  const utcHours = now.getUTCHours();
+  const utcMinutes = now.getUTCMinutes();
+  const utcSeconds = now.getUTCSeconds();
+  
+  // Hozirgi vaqt qaysi ustunga to'g'ri keladi?
+  const currentSeg = document.getElementById(`seg-${utcHours}`);
+  
+  if (currentSeg) {
+    const segRect = currentSeg.getBoundingClientRect();
+    const baseRect = baseContainer.getBoundingClientRect();
     
-    if (activeSeg) {
-      const segRect = activeSeg.getBoundingClientRect();
-      const baseRect = baseContainer.getBoundingClientRect();
-      
-      // Tanlangan ustunning boshlanish nuqtasi va eni
-      const leftOffset = segRect.left - baseRect.left;
-      
-      // Chiziqni tanlangan ustunga moslashtiramiz
-      line.style.left = `${leftOffset}px`;
-      line.style.width = `${segRect.width}px`;
-      line.style.opacity = 1;
-      
-      // Agar hozirgi vaqt tanlanmagan bo'lsa, rangini kulrangroq qilish (ixtiyoriy)
-      // line.style.backgroundColor = '#3b82f6'; 
-    }
-  } else {
-    // Hech narsa tanlanmagan bo'lsa, hozirgi vaqtni ko'rsatadi
-    const now = new Date();
-    const utcHours = now.getUTCHours();
-    const utcMinutes = now.getUTCMinutes();
-    const utcSeconds = now.getUTCSeconds();
+    // Ustunning aniq joylashuvi va eni (piksellarda)
+    const leftOffset = segRect.left - baseRect.left;
+    const width = segRect.width;
     
-    const totalHours = utcHours + utcMinutes / 60 + utcSeconds / 3600;
-    const percentage = (totalHours / 24) * 100;
-    
-    // Standart holatda chiziq eni taxminan 1 soatlik bo'ladi
-    line.style.left = `${percentage}%`;
-    line.style.width = `${100 / 24}%`;
-    line.style.opacity = 1;
+    // Ko'k chiziqni aynan shu ustunning tagiga qo'yamiz
+    line.style.left = `${leftOffset}px`;
+    line.style.width = `${width}px`;
   }
 }
 
@@ -322,21 +313,18 @@ function renderInstrumentList(type){
 
 // ================== INIT ==================
 (function init(){
-  // Vaqt mintaqasini avtomatik aniqlash
   tzOffset = -new Date().getTimezoneOffset() / 60;
 
   renderInstruments();
   renderRuler();
   updateTimeBadge();
   
-  // DOM to'liq yuklangandan keyin chiziqni to'g'ri o'lchash uchun ozgina kutish
-  setTimeout(updateNowLine, 50);
+  // Dastlabki yuklanishda chiziqni to'g'ri o'lchash
+  setTimeout(updateNowLine, 100);
 
-  // Har sekundda hozirgi vaqtni kuzatish (agar tanlangan bo'lsa, baribir ta'sir qilmaydi)
+  // Har sekundda hozirgi vaqt chizig'ini tekshirish (vaqt o'tishi bilan u siljiydi)
   setInterval(() => {
-    if (selectedHour === null) {
-      updateNowLine();
-    }
+    updateNowLine();
   }, 1000);
 
   // Har daqiqada vaqt katakchasini yangilash
@@ -346,7 +334,7 @@ function renderInstrumentList(type){
     }
   }, 60000);
 
-  // Ekran o'lchami o'zgarganda (masalan, telefon burilsa) chiziqni qayta hisoblash
+  // Ekran o'lchami o'zgarganda qayta hisoblash
   window.addEventListener('resize', updateNowLine);
 })();
 </script>
