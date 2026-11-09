@@ -1,3 +1,289 @@
+<!DOCTYPE html>
+<html lang="uz" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Eng yaxshi trading vaqtlari</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: {
+      extend: { colors: { brand: { 500: '#3b82f6', 600: '#2563eb' } } }
+    }
+  }
+</script>
+<style>
+  /* ===== TIMELINE RULER ===== */
+  .ruler-wrap { 
+    display: flex; 
+    align-items: flex-end; 
+    gap: 2px; 
+    height: 60px; 
+    padding: 4px 0 0 0; 
+    overflow: visible; 
+    position: relative;
+    margin-bottom: 6px; 
+  }
+  
+  .ruler-seg {
+    flex: 1 1 0; 
+    min-width: 0; 
+    border-radius: 3px 3px 0 0; 
+    position: relative;
+    cursor: pointer; 
+    transition: flex .35s cubic-bezier(.4,0,.2,1), opacity .35s, filter .2s; 
+    display: flex;
+    flex-direction: column; 
+    justify-content: center; 
+    align-items: center; 
+    user-select: none;
+  }
+  .ruler-seg:hover { filter: brightness(1.08); }
+
+  /* Balandliklar */
+  .ruler-seg.liq-low     { height: 15px; }
+  .ruler-seg.liq-medium  { height: 25px; }
+  .ruler-seg.liq-high    { height: 35px; }
+  .ruler-seg.liq-overlap { height: 45px; }
+
+  /* Kattalashgan segment */
+  .ruler-seg.active {
+    flex: 3 1 0; 
+    z-index: 10; 
+    box-shadow: 0 2px 8px rgba(0,0,0,.4);
+    border-radius: 4px 4px 0 0; 
+  }
+  
+  .ruler-wrap.has-active .ruler-seg:not(.active) { 
+    flex: 0.6 1 0; 
+    opacity: .4; 
+  }
+
+  /* Hozirgi vaqt ko'rsatkichi */
+  .now-line-container {
+    position: relative;
+    width: 100%;
+    height: 6px;
+  }
+  
+  .now-line {
+    position: absolute;
+    top: 0; 
+    height: 4px;
+    background: #3b82f6;
+    border-radius: 4px;
+    z-index: 20;
+    box-shadow: 0 0 6px rgba(59,130,246,.6);
+    transition: left 0.35s cubic-bezier(.4,0,.2,1), width 0.35s cubic-bezier(.4,0,.2,1);
+  }
+
+  /* Ranglar */
+  .liq-overlap { background: linear-gradient(180deg,#34d399,#059669); }
+  .liq-high    { background: #22c55e; }
+  .liq-medium  { background: #facc15; color:#3f3f46; }
+  .liq-low     { background: #cbd5e1; color:#64748b; }
+  .dark .liq-low { background: #475569; color:#cbd5e1; }
+</style>
+</head>
+<body class="bg-gray-900 text-gray-100 transition-colors">
+
+<!-- HEADER -->
+<header class="bg-gray-800 shadow-sm sticky top-0 z-30">
+  <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+    <h1 class="font-bold text-lg">📊 Trading Times</h1>
+  </div>
+</header>
+
+<main class="max-w-6xl mx-auto px-4 py-6 space-y-8">
+
+  <!-- KUNLIK TIMELINE RULER -->
+  <section class="bg-gray-800 rounded-2xl p-4 shadow-sm text-gray-100">
+    
+    <!-- Sarlavha va Vaqt katakchasi -->
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+      <h3 class="font-bold text-base">Likvidlik shkalasi</h3>
+      
+      <!-- Vaqt katakchasi -->
+      <button id="timeBadge" class="text-sm font-mono font-semibold bg-gray-700 text-gray-300 px-3 py-1 rounded-lg border border-gray-600 transition-colors hover:bg-gray-600 focus:outline-none">
+        --:-- - --:--
+      </button>
+    </div>
+
+    <!-- Ruler (Ustunlar) -->
+    <div id="rulerWrap" class="ruler-wrap"></div>
+    
+    <!-- Hozirgi vaqt chizig'i -->
+    <div class="now-line-container" id="baseContainer">
+      <div id="nowLine" class="now-line"></div>
+    </div>
+  </section>
+
+  <!-- JUFTLIKLAR BO'YICHA -->
+  <section class="bg-gray-800 rounded-2xl p-4 shadow-sm">
+    <h3 class="font-bold mb-3">Instrument bo'yicha eng yaxshi vaqtlar</h3>
+    <div class="flex flex-wrap gap-2 mb-4" id="instrumentFilter"></div>
+    <div id="instrumentList" class="space-y-3"></div>
+  </section>
+
+</main>
+
+<footer class="text-center text-xs text-gray-500 py-6">
+  Ma'lumotlar taxminiy. Trading qarorlaringizni o'zingiz qabul qiling.
+</footer>
+
+<script>
+// ================== MA'LUMOTLAR ==================
+const INSTRUMENTS = [
+  { type: 'Forex', pair: 'EURUSD', name: 'EURO / US DOLLAR', utcStart: 1, utcEnd: 5 },
+  { type: 'Forex', pair: 'USDCAD', name: 'US DOLLAR / CANADIAN DOLLAR', utcStart: 12, utcEnd: 17 },
+  { type: 'Forex', pair: 'USDJPY', name: 'US DOLLAR / JAPANESE YEN', utcStart: 12, utcEnd: 17 },
+  { type: 'Forex', pair: 'GBPJPY', name: 'BRITISH POUND / JAPANESE YEN', utcStart: 4, utcEnd: 8 },
+  { type: 'Metall', pair: 'XAUUSD', name: 'GOLD', utcStart: 7, utcEnd: 12 },
+  { type: 'Indeks', pair: 'US30', name: 'DOW JONES', utcStart: 1, utcEnd: 6, utcStart2: 11.5, utcEnd2: 17 },
+  { type: 'Forex', pair: 'AUDUSD', name: 'AUSTRALIAN DOLLAR / US DOLLAR', utcStart: 23, utcEnd: 3, utcStart2: 12, utcEnd2: 16 },
+];
+
+// ================== HOLAT ==================
+let tzOffset = -new Date().getTimezoneOffset() / 60; 
+let selectedHour = null;
+
+// ================== YORDAMCHI ==================
+function pad(n){ return String(Math.floor(n)).padStart(2,'0'); }
+
+function formatTimeInterval(startUtcH) {
+  let localStart = (startUtcH + tzOffset) % 24;
+  if (localStart < 0) localStart += 24;
+  let localEnd = (startUtcH + 1 + tzOffset) % 24;
+  if (localEnd < 0) localEnd += 24;
+  
+  let hStart = Math.floor(localStart);
+  let mStart = Math.round((localStart - hStart) * 60);
+  
+  let hEnd = Math.floor(localEnd);
+  let mEnd = Math.round((localEnd - hEnd) * 60);
+  
+  let displayEnd = '';
+  if (mEnd === 0) {
+    let prevHour = (hEnd - 1 + 24) % 24;
+    displayEnd = `${pad(prevHour)}:59`;
+  } else {
+    displayEnd = `${pad(hEnd)}:${pad(mEnd)}`;
+  }
+
+  return `${pad(hStart)}:${pad(mStart)} - ${displayEnd}`;
+}
+
+function liquidityAt(utcHour){
+  const london = utcHour >= 7 && utcHour < 16;
+  const ny = utcHour >= 12 && utcHour < 21;
+  const tokyo = utcHour >= 0 && utcHour < 9;
+  if (london && ny) return 'overlap';
+  if (london || ny) return 'high';
+  if (tokyo) return 'medium';
+  return 'low';
+}
+
+// ================== RENDER: RULER ==================
+function renderRuler(){
+  const wrap = document.getElementById('rulerWrap');
+
+  wrap.innerHTML = '';
+  for (let utc = 0; utc < 24; utc++){
+    const liq = liquidityAt(utc);
+    const seg = document.createElement('div');
+    seg.className = `ruler-seg liq-${liq}`;
+    seg.id = `seg-${utc}`;
+    if (selectedHour !== null && utc === selectedHour) seg.classList.add('active');
+    seg.dataset.utc = utc;
+    seg.title = formatTimeInterval(utc);
+    
+    seg.addEventListener('click', () => {
+      selectedHour = (selectedHour === utc) ? null : utc;
+      renderRuler();
+      updateTimeBadge();
+      requestAnimationFrame(() => {
+        setTimeout(updateNowLine, 10);
+      });
+    });
+    wrap.appendChild(seg);
+  }
+  
+  if (selectedHour !== null) wrap.classList.add('has-active');
+  else wrap.classList.remove('has-active');
+}
+
+// ================== RENDER: VAQT KATAKCHASI ==================
+function updateTimeBadge(){
+  const badge = document.getElementById('timeBadge');
+  
+  if (selectedHour === null) {
+    const now = new Date();
+    const utcH = now.getUTCHours();
+    
+    badge.textContent = formatTimeInterval(utcH);
+    badge.className = 'text-sm font-mono font-semibold bg-gray-700 text-gray-300 px-3 py-1 rounded-lg border border-gray-600 transition-colors hover:bg-gray-600 focus:outline-none cursor-default';
+  } else {
+    badge.textContent = formatTimeInterval(selectedHour);
+    badge.className = 'text-sm font-mono font-semibold bg-brand-500 text-white px-3 py-1 rounded-lg border border-brand-500 transition-colors hover:bg-brand-600 focus:outline-none cursor-pointer';
+  }
+}
+
+document.getElementById('timeBadge').addEventListener('click', () => {
+  if (selectedHour !== null) {
+    selectedHour = null;
+    renderRuler();
+    updateTimeBadge();
+    requestAnimationFrame(() => {
+      setTimeout(updateNowLine, 10);
+    });
+  }
+});
+
+// ================== RENDER: HOZIRGI VAQT BELGISI ==================
+function updateNowLine(){
+  const line = document.getElementById('nowLine');
+  const baseContainer = document.getElementById('baseContainer');
+  const now = new Date();
+  
+  const utcHours = now.getUTCHours();
+  const currentSeg = document.getElementById(`seg-${utcHours}`);
+  
+  if (currentSeg) {
+    const segRect = currentSeg.getBoundingClientRect();
+    const baseRect = baseContainer.getBoundingClientRect();
+    
+    const leftOffset = segRect.left - baseRect.left;
+    const width = segRect.width;
+    
+    line.style.left = `${leftOffset}px`;
+    line.style.width = `${width}px`;
+  }
+}
+
+// ================== INSTRUMENTLAR ==================
+function renderInstruments(){
+  const filterEl = document.getElementById('instrumentFilter');
+  const types = ['Hammasi', ...new Set(INSTRUMENTS.map(i => i.type))];
+  filterEl.innerHTML = types.map((t, i) =>
+    `<button class="inst-btn text-sm px-3 py-1.5 rounded-lg border border-gray-600 text-gray-300 ${i===0?'bg-brand-500 text-white border-brand-500':''}" data-type="${t}">${t}</button>`
+  ).join('');
+
+  document.querySelectorAll('.inst-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.inst-btn').forEach(b => {
+        b.classList.remove('bg-brand-500','text-white','border-brand-500');
+        b.classList.add('border-gray-600','text-gray-300');
+      });
+      btn.classList.add('bg-brand-500','text-white','border-brand-500');
+      btn.classList.remove('border-gray-600','text-gray-300');
+      renderInstrumentList(btn.dataset.type);
+    });
+  });
+  renderInstrumentList('Hammasi');
+}
+
+// To'g'rilangan funksiya: Telefonda ham yonma-yon turishi uchun
 function renderInstrumentList(type){
   const list = document.getElementById('instrumentList');
   const items = type === 'Hammasi' ? INSTRUMENTS : INSTRUMENTS.filter(i => i.type === type);
@@ -8,7 +294,7 @@ function renderInstrumentList(type){
       timeStr += `<br><span class="text-xs text-gray-500">va</span> ${formatTimeInterval(i.utcStart2)}`;
     }
 
-    // flex-row ishlatildi, vaqt o'ngga surildi (ml-auto)
+    // flex-row va ml-auto qo'shildi
     return `
       <div class="flex flex-row items-center justify-between gap-3 p-4 rounded-xl bg-gray-700/50 border border-gray-700">
         <div class="min-w-0 flex-1">
@@ -24,3 +310,29 @@ function renderInstrumentList(type){
     `;
   }).join('');
 }
+
+// ================== INIT ==================
+(function init(){
+  tzOffset = -new Date().getTimezoneOffset() / 60;
+
+  renderInstruments();
+  renderRuler();
+  updateTimeBadge();
+  
+  setTimeout(updateNowLine, 100);
+
+  setInterval(() => {
+    updateNowLine();
+  }, 1000);
+
+  setInterval(() => {
+    if (selectedHour === null) {
+      updateTimeBadge();
+    }
+  }, 60000);
+
+  window.addEventListener('resize', updateNowLine);
+})();
+</script>
+</body>
+</html>
