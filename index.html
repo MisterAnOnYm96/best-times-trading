@@ -17,21 +17,22 @@
   /* ===== TIMELINE RULER ===== */
   .ruler-wrap { 
     display: flex; 
-    align-items: flex-end; 
+    align-items: flex-end; /* Pastdan tekislanadi */
     gap: 2px; 
-    height: 70px; 
+    height: 100px; /* Umumiy balandlik eng baland ustunga moslashadi */
     padding: 8px 0 0 0; 
     overflow: visible; 
     position: relative;
   }
+  
   .ruler-seg {
     flex: 1 1 0; 
     min-width: 0; 
-    height: 40px; 
     border-radius: 4px 4px 0 0; 
     position: relative;
     cursor: pointer; 
-    transition: flex .35s cubic-bezier(.4,0,.2,1), height .35s cubic-bezier(.4,0,.2,1), opacity .35s, filter .2s; 
+    /* Faqat flex (eni) o'zgarishi animatsiya qilinadi, height emas */
+    transition: flex .35s cubic-bezier(.4,0,.2,1), opacity .35s, filter .2s; 
     display: flex;
     flex-direction: column; 
     justify-content: center; 
@@ -40,10 +41,15 @@
   }
   .ruler-seg:hover { filter: brightness(1.08); }
 
-  /* Kattalashgan segment */
+  /* Likvidlik darajasiga qarab balandliklar (pog'ona) */
+  .ruler-seg.liq-low     { height: 30px; }
+  .ruler-seg.liq-medium  { height: 50px; }
+  .ruler-seg.liq-high    { height: 70px; }
+  .ruler-seg.liq-overlap { height: 90px; }
+
+  /* Kattalashgan segment - faqat eni o'zgaradi */
   .ruler-seg.active {
     flex: 3 1 0; 
-    height: 60px; 
     z-index: 10; 
     box-shadow: 0 4px 12px rgba(0,0,0,.25);
     border-radius: 6px 6px 0 0; 
@@ -51,7 +57,6 @@
   
   .ruler-wrap.has-active .ruler-seg:not(.active) { 
     flex: 0.6 1 0; 
-    height: 30px; 
     opacity: .6; 
   }
 
@@ -140,7 +145,7 @@
     <div id="rulerWrap" class="ruler-wrap"></div>
     <div class="ruler-base" id="rulerBase"></div>
 
-    <!-- Ma'lumot paneli (balandligi qat'iy, shrift kichraytirildi) -->
+    <!-- Ma'lumot paneli -->
     <div id="segInfo" class="mt-4 bg-gray-50 dark:bg-gray-700/40 rounded-xl px-4 py-2.5 text-gray-600 dark:text-gray-300 flex flex-col justify-center min-h-[56px]">
       <!-- JS tomonidan to'ldiriladi -->
     </div>
@@ -215,6 +220,7 @@ function renderRuler(){
   for (let utc = 0; utc < 24; utc++){
     const liq = liquidityAt(utc);
     const seg = document.createElement('div');
+    // Har bir daraja uchun klass biriktiriladi
     seg.className = `ruler-seg liq-${liq}` + (utc === utcNow ? ' now' : '');
     if (selectedHour !== null && utc === selectedHour) seg.classList.add('active');
     seg.dataset.utc = utc;
@@ -244,7 +250,6 @@ function renderRuler(){
 function renderSegInfo(){
   const info = document.getElementById('segInfo');
   
-  // Standart holat (hech narsa tanlanmagan)
   if (selectedHour === null){
     info.innerHTML = `
       <div class="font-mono font-semibold text-sm text-gray-800 dark:text-gray-200">Vaqt tanlang</div>
@@ -253,7 +258,6 @@ function renderSegInfo(){
     return;
   }
   
-  // Tanlangan holat
   const liq = liquidityAt(selectedHour);
   const colors = { 
     overlap: 'text-emerald-600 dark:text-emerald-400', 
