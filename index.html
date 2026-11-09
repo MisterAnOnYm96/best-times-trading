@@ -28,7 +28,7 @@
   .ruler-seg {
     flex: 1 1 0; 
     min-width: 0; 
-    border-radius: 0; /* Burchaklar to'g'ri qilindi */
+    border-radius: 3px 3px 0 0; 
     position: relative;
     cursor: pointer; 
     transition: flex .35s cubic-bezier(.4,0,.2,1), opacity .35s, filter .2s; 
@@ -51,7 +51,7 @@
     flex: 3 1 0; 
     z-index: 10; 
     box-shadow: 0 2px 8px rgba(0,0,0,.2);
-    border-radius: 0;
+    border-radius: 4px 4px 0 0; 
   }
   
   .ruler-wrap.has-active .ruler-seg:not(.active) { 
@@ -59,20 +59,12 @@
     opacity: .6; 
   }
 
-  /* Hozirgi vaqt belgisi (to'g'ri to'rtburchak shaklida, shkalaga yopishgan) */
-  .ruler-seg.now::after {
-    content: ''; 
-    position: absolute; 
-    bottom: 0; /* Shkala chizig'iga yopishadi */
-    left: 0;
-    width: 100%; 
-    height: 6px; /* To'g'ri to'rtburchak balandligi */
-    background: #3b82f6; 
-    border-radius: 0;
-    z-index: 20;
+  /* Lineyka (shkala) chizig'i va vaqt belgisi */
+  .ruler-base-container {
+    position: relative;
+    width: 100%;
   }
-
-  /* Lineyka (shkala) chizig'i */
+  
   .ruler-base { 
     position: relative; 
     height: 1px; 
@@ -80,6 +72,7 @@
     opacity: .25; 
     margin-top: 0; 
   }
+  
   .ruler-base .tick { 
     position: absolute; 
     top: -3px; 
@@ -92,6 +85,19 @@
     height: 6px; 
     top: -6px; 
     opacity: .8; 
+  }
+
+  /* Hozirgi vaqt ko'rsatkichi (chiziqcha) */
+  .now-marker {
+    position: absolute;
+    top: 0; /* lineyka chizig'idan boshlanadi */
+    width: 2px;
+    height: 12px;
+    background: #3b82f6;
+    transform: translateX(-50%);
+    z-index: 20;
+    border-radius: 2px;
+    box-shadow: 0 0 4px rgba(59,130,246,.5);
   }
 
   /* Ranglar */
@@ -117,7 +123,7 @@
         <option value="-5">New York (UTC-5)</option>
         <option value="9">Tokyo (UTC+9)</option>
       </select>
-      <!-- Kun/tun tugmasi olib tashlandi -->
+      <!-- Tema tugmasi olib tashlandi -->
     </div>
   </div>
 </header>
@@ -133,13 +139,18 @@
       
       <!-- Vaqt katakchasi -->
       <div id="timeBadge" class="text-sm font-mono font-semibold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-3 py-1 rounded-lg border border-gray-200 dark:border-gray-600">
-        00:00 - 23:59
+        --:-- - --:--
       </div>
     </div>
 
     <!-- Ruler -->
     <div id="rulerWrap" class="ruler-wrap"></div>
-    <div class="ruler-base" id="rulerBase"></div>
+    
+    <!-- Lineyka va hozirgi vaqt belgisi (pastda) -->
+    <div class="ruler-base-container">
+      <div class="ruler-base" id="rulerBase"></div>
+      <div id="nowMarker" class="now-marker"></div>
+    </div>
   </section>
 
   <!-- JUFTLIKLAR BO'YICHA -->
@@ -208,7 +219,7 @@ function renderRuler(){
   for (let utc = 0; utc < 24; utc++){
     const liq = liquidityAt(utc);
     const seg = document.createElement('div');
-    seg.className = `ruler-seg liq-${liq}` + (utc === utcNow ? ' now' : '');
+    seg.className = `ruler-seg liq-${liq}`;
     if (selectedHour !== null && utc === selectedHour) seg.classList.add('active');
     seg.dataset.utc = utc;
     seg.title = `${formatLocalTime(utc)} — ${formatLocalTime(utc+1)}`;
@@ -217,6 +228,7 @@ function renderRuler(){
       selectedHour = (selectedHour === utc) ? null : utc;
       renderRuler();
       updateTimeBadge();
+      updateNowMarker();
     });
     wrap.appendChild(seg);
   }
@@ -236,15 +248,45 @@ function renderRuler(){
 // ================== RENDER: VAQT KATAKCHASI ==================
 function updateTimeBadge(){
   const badge = document.getElementById('timeBadge');
+  
   if (selectedHour === null) {
-    badge.textContent = '00:00 - 23:59';
+    // Tanlanmagan holatda hozirgi vaqt davri
+    const now = new Date();
+    const utcH = now.getUTCHours();
+    // Hozirgi mintaqada qaysi soat ekanligini aniqlaymiz
+    const localNow = (utcH + tzOffset + 24) % 24;
+    const floorHour = Math.floor(localNow); // hozirgi soat (0-23)
+    
+    // Qaytarish: bu soat UTC bo'yicha qaysi vaqtga to'g'ri keladi?
+    const utcEquiv = (floorHour - tzOffset + 24) % 24;
+    
+    const start = formatLocalTime(utcEquiv);
+    const end = formatLocalTime(utcEquiv + 1);
+    badge.textContent = `${start} - ${end}`;
     badge.className = 'text-sm font-mono font-semibold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-3 py-1 rounded-lg border border-gray-200 dark:border-gray-600';
   } else {
+    // Tanlangan holatda tanlangan vaqt
     const start = formatLocalTime(selectedHour);
     const end = formatLocalTime(selectedHour + 1);
     badge.textContent = `${start} - ${end}`;
     badge.className = 'text-sm font-mono font-semibold bg-brand-500 text-white px-3 py-1 rounded-lg border border-brand-500';
   }
+}
+
+// ================== RENDER: HOZIRGI VAQT BELGISI ==================
+function updateNowMarker(){
+  const marker = document.getElementById('nowMarker');
+  const now = new Date();
+  
+  // Hozirgi soat va daqiqa (UTC da)
+  const utcHours = now.getUTCHours();
+  const utcMinutes = now.getUTCMinutes();
+  
+  // 24 soatlik foizga o'girish (0 dan 100 gacha)
+  const totalHours = utcHours + utcMinutes / 60;
+  const percentage = (totalHours / 24) * 100;
+  
+  marker.style.left = `${percentage}%`;
 }
 
 // ================== INSTRUMENTLAR ==================
@@ -296,14 +338,6 @@ function renderInstrumentList(type){
   }).join('');
 }
 
-// ================== TEMA (Faqat avtomatik) ==================
-function initTheme(){
-  if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-    document.documentElement.classList.add('dark');
-  }
-}
-// Tun/kun tugmasi o'chirilgani uchun click event ham olib tashlandi.
-
 // ================== TZ SELECT ==================
 document.getElementById('tzSelect').addEventListener('change', (e) => {
   tzOffset = parseFloat(e.target.value);
@@ -311,21 +345,29 @@ document.getElementById('tzSelect').addEventListener('change', (e) => {
   selectedHour = null;
   renderRuler();
   updateTimeBadge();
+  updateNowMarker();
   renderInstrumentList(document.querySelector('.inst-btn.bg-brand-500')?.dataset.type || 'Hammasi');
 });
 
 // ================== INIT ==================
 (function init(){
-  initTheme();
+  // Tema doim light mode qilib qo'yildi (yoki brauzer sozlamasiga qoldiriladi)
   const savedTz = localStorage.getItem('tzOffset');
   if (savedTz !== null) {
     tzOffset = parseFloat(savedTz);
     document.getElementById('tzSelect').value = savedTz;
   }
+  
   renderInstruments();
   renderRuler();
   updateTimeBadge();
-  setInterval(renderRuler, 60000);
+  updateNowMarker();
+
+  // Har daqiqada vaqt belgisini va katakchani yangilash
+  setInterval(() => {
+    updateTimeBadge();
+    updateNowMarker();
+  }, 60000);
 })();
 </script>
 </body>
