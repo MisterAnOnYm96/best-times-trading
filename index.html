@@ -332,7 +332,6 @@ function openMenuSheet() {
   tempTimeRows = [];
   INSTRUMENTS.forEach(inst => {
     inst.times.forEach(time => {
-      // Vaqtni 4 ta qismga bo'lib olamiz: "HH:MM - HH:MM"
       const match = time.match(/(\d{2}):(\d{2})\s*-\s*(\d{2}):(\d{2})/);
       if (match) {
         tempTimeRows.push({ 
@@ -342,7 +341,6 @@ function openMenuSheet() {
           endH: match[3], endM: match[4] 
         });
       } else {
-        // Agar format xato bo'lsa, bo'sh qo'shamiz
         tempTimeRows.push({ pair: inst.pair, type: inst.type, startH: '00', startM: '00', endH: '00', endM: '00' });
       }
     });
@@ -360,7 +358,7 @@ function closeMenuSheet() {
   setTimeout(() => menuSheet.classList.add('pointer-events-none'), 300);
 }
 
-// QATORLARNI CHIZISH: 4 TA INPUT VA STATIK BELGILAR
+// QATORLARNI CHIZISH: AVTOMATIK O'TISH MANTIG'I BILAN
 function renderTimeRows() {
   const uniquePairs = [...new Set(INSTRUMENTS.map(i => i.pair))];
   
@@ -373,22 +371,36 @@ function renderTimeRows() {
           ${uniquePairs.map(p => `<option value="${p}" class="bg-gray-800" ${row.pair === p ? 'selected' : ''}>${p}</option>`).join('')}
         </select>
 
-        <!-- Vaqt kiritish qismi (4 ta kichik input va statik belgilar) -->
+        <!-- Vaqt kiritish qismi -->
         <div class="flex-1 flex items-center justify-center bg-gray-700/50 border border-gray-600 rounded-lg px-1 py-1 focus-within:border-brand-500 transition-colors">
           
-          <!-- Start Hour -->
-          <input type="number" min="0" max="23" placeholder="00" value="${row.startH}" class="w-7 bg-transparent text-center text-gray-200 text-sm font-mono outline-none" data-index="${index}" data-field="startH" oninput="if(this.value.length>2) this.value=this.value.slice(0,2); if(this.value>23) this.value='23'; if(this.value<0) this.value='00';">
+          <!-- Start Hour (id: startH-0, startH-1...) -->
+          <input type="number" id="startH-${index}" min="0" max="23" placeholder="00" value="${row.startH}" 
+                 class="w-7 bg-transparent text-center text-gray-200 text-sm font-mono outline-none" 
+                 data-index="${index}" data-field="startH" 
+                 oninput="handleTimeInput(this, 'startM-${index}')">
           <span class="text-gray-400 text-sm font-mono mx-0.5">:</span>
+          
           <!-- Start Minute -->
-          <input type="number" min="0" max="59" placeholder="00" value="${row.startM}" class="w-7 bg-transparent text-center text-gray-200 text-sm font-mono outline-none" data-index="${index}" data-field="startM" oninput="if(this.value.length>2) this.value=this.value.slice(0,2); if(this.value>59) this.value='59'; if(this.value<0) this.value='00';">
+          <input type="number" id="startM-${index}" min="0" max="59" placeholder="00" value="${row.startM}" 
+                 class="w-7 bg-transparent text-center text-gray-200 text-sm font-mono outline-none" 
+                 data-index="${index}" data-field="startM" 
+                 oninput="handleTimeInput(this, 'endH-${index}')">
           
           <span class="text-gray-500 text-sm font-mono mx-1">-</span>
 
           <!-- End Hour -->
-          <input type="number" min="0" max="23" placeholder="00" value="${row.endH}" class="w-7 bg-transparent text-center text-gray-200 text-sm font-mono outline-none" data-index="${index}" data-field="endH" oninput="if(this.value.length>2) this.value=this.value.slice(0,2); if(this.value>23) this.value='23'; if(this.value<0) this.value='00';">
+          <input type="number" id="endH-${index}" min="0" max="23" placeholder="00" value="${row.endH}" 
+                 class="w-7 bg-transparent text-center text-gray-200 text-sm font-mono outline-none" 
+                 data-index="${index}" data-field="endH" 
+                 oninput="handleTimeInput(this, 'endM-${index}')">
           <span class="text-gray-400 text-sm font-mono mx-0.5">:</span>
+          
           <!-- End Minute -->
-          <input type="number" min="0" max="59" placeholder="00" value="${row.endM}" class="w-7 bg-transparent text-center text-gray-200 text-sm font-mono outline-none" data-index="${index}" data-field="endM" oninput="if(this.value.length>2) this.value=this.value.slice(0,2); if(this.value>59) this.value='59'; if(this.value<0) this.value='00';">
+          <input type="number" id="endM-${index}" min="0" max="59" placeholder="00" value="${row.endM}" 
+                 class="w-7 bg-transparent text-center text-gray-200 text-sm font-mono outline-none" 
+                 data-index="${index}" data-field="endM" 
+                 oninput="handleTimeInput(this, null)">
           
         </div>
         
@@ -402,7 +414,7 @@ function renderTimeRows() {
     `;
   }).join('');
 
-  // Inputlar o'zgarganda ma'lumotni saqlash
+  // Ma'lumotlarni saqlash
   timeRowsContainer.querySelectorAll('select, input').forEach(el => {
     el.addEventListener('change', (e) => {
       const index = e.target.dataset.index;
@@ -414,13 +426,43 @@ function renderTimeRows() {
         tempTimeRows[index].pair = val;
         if (inst) tempTimeRows[index].type = inst.type;
       } else {
-        // Doim 2 xonali qilib saqlash (masalan, 5 -> 05)
         if (val.length === 1) val = '0' + val;
         tempTimeRows[index][field] = val;
       }
     });
   });
 }
+
+// AVTOMATIK O'TISH VA TO'G'RILASH FUNKSIYASI
+window.handleTimeInput = function(el, nextId) {
+  let val = el.value;
+  const index = el.dataset.index;
+  const field = el.dataset.field;
+
+  // 2 tadan ko'p raqam kiritilmasin
+  if (val.length > 2) {
+    val = val.slice(0, 2);
+    el.value = val;
+  }
+
+  // Chegaradan oshib ketsa to'g'rilash (soat 23, daqiqa 59)
+  if (field.includes('H') && parseInt(val) > 23) { el.value = '23'; val = '23'; }
+  if (field.includes('M') && parseInt(val) > 59) { el.value = '59'; val = '59'; }
+
+  // Agar 2 ta raqam yozilgan bo'lsa, keyingi katakka o'tish
+  if (val.length === 2 && nextId) {
+    const nextInput = document.getElementById(nextId);
+    if (nextInput) {
+      nextInput.focus();
+      nextInput.select(); // Keyingi katakdagi matnni belgilab qo'yish (oson o'chirish uchun)
+    }
+  }
+
+  // Ma'lumotni yangilash
+  if (tempTimeRows[index]) {
+    tempTimeRows[index][field] = val.padStart(2, '0');
+  }
+};
 
 window.removeTimeRow = function(index) {
   const confirmDelete = confirm("Ushbu vaqt oralig'ini o'chirishni tasdiqlaysizmi?");
@@ -453,10 +495,7 @@ saveMenuBtn.addEventListener('click', () => {
   const grouped = {};
   
   tempTimeRows.forEach(row => {
-    // Bo'sh yoki 00:00 - 00:00 bo'lsa tashlab ketamiz (ixtiyoriy)
     if (row.startH === '00' && row.startM === '00' && row.endH === '00' && row.endM === '00') return;
-    
-    // Vaqtni yagona stringga yig'amiz: "HH:MM - HH:MM"
     const timeString = `${row.startH}:${row.startM} - ${row.endH}:${row.endM}`;
 
     if (!grouped[row.pair]) {
