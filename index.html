@@ -303,7 +303,7 @@ function closeMenuSheet() {
   setTimeout(() => menuSheet.classList.add('pointer-events-none'), 300);
 }
 
-// TUZATILGAN QATOR: Select qisqartirildi, inputga flex berildi
+// TUZATILGAN: Select kengligi w-32 qilindi, nomlar to'liq ko'rinadi
 function renderTimeRows() {
   const uniquePairs = [...new Set(INSTRUMENTS.map(i => i.pair))];
   
@@ -313,12 +313,11 @@ function renderTimeRows() {
         
         <div class="flex-1 flex items-center bg-gray-700/50 border border-gray-600 rounded-lg overflow-hidden focus-within:border-brand-500 transition-colors">
           
-          <!-- Select: qisqaroq (w-24), sig'masa ... bo'ladi -->
-          <select class="w-24 flex-shrink-0 bg-transparent text-gray-200 text-base py-1.5 pl-2 pr-1 outline-none truncate" data-index="${index}" data-field="pair">
+          <!-- Select: w-32 qilib kengaytirildi -->
+          <select class="w-32 flex-shrink-0 bg-transparent text-gray-200 text-base py-1.5 pl-2 pr-1 outline-none" data-index="${index}" data-field="pair">
             ${uniquePairs.map(p => `<option value="${p}" class="bg-gray-800" ${row.pair === p ? 'selected' : ''}>${p}</option>`).join('')}
           </select>
           
-          <!-- Input: qolgan joyni egallaydi (flex-1), chapga tekislangan -->
           <input type="text" class="flex-1 w-full bg-transparent text-gray-200 text-base py-1.5 px-2 outline-none font-mono" placeholder="06:00 - 08:00" value="${row.time}" data-index="${index}" data-field="time">
         </div>
         
