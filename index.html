@@ -168,7 +168,7 @@
 </div>
 
 <script>
-// name o'zgaruvchisi butunlay olib tashlandi
+// FAQAT KERAKLI MA'LUMOTLAR (name va boshqa ortiqcha narsalar olib tashlangan)
 let INSTRUMENTS = [
   { type: 'Forex', pair: 'EURUSD', times: ['01:00 - 01:59'] },
   { type: 'Forex', pair: 'USDCAD', times: ['12:00 - 12:59'] },
@@ -250,7 +250,7 @@ document.addEventListener('focusout', function(e) {
   }
 });
 
-// FILTR
+// FILTR MANTIG'I
 const filterSheet = document.getElementById('filterSheet');
 const sheetOverlay = document.getElementById('sheetOverlay');
 const sheetContent = document.getElementById('sheetContent');
@@ -304,7 +304,7 @@ saveFilterBtn.addEventListener('click', () => {
   closeSheet();
 });
 
-// MENYU (VAQTNI SOZLASH)
+// MENYU (VAQTNI SOZLASH) MANTIG'I
 const menuSheet = document.getElementById('menuSheet');
 const menuOverlay = document.getElementById('menuOverlay');
 const menuContent = document.getElementById('menuContent');
@@ -319,7 +319,6 @@ function openMenuSheet() {
   tempTimeRows = [];
   INSTRUMENTS.forEach(inst => {
     inst.times.forEach(time => {
-      // name olib tashlandi
       tempTimeRows.push({ pair: inst.pair, type: inst.type, time: time });
     });
   });
@@ -367,7 +366,6 @@ function renderTimeRows() {
         const inst = INSTRUMENTS.find(i => i.pair === val);
         tempTimeRows[index].pair = val;
         if (inst) {
-          // name yangilanishi olib tashlandi
           tempTimeRows[index].type = inst.type;
         }
       } else {
@@ -393,7 +391,6 @@ addTimeBtn.addEventListener('click', () => {
   if (tempTimeRows.length < 20) {
     tempTimeRows.push({ 
       pair: defaultPair, 
-      // name olib tashlandi
       type: inst ? inst.type : 'Forex', 
       time: '' 
     });
@@ -411,7 +408,6 @@ saveMenuBtn.addEventListener('click', () => {
   tempTimeRows.forEach(row => {
     if (!row.time.trim()) return;
     if (!grouped[row.pair]) {
-      // name olib tashlandi
       grouped[row.pair] = { type: row.type, pair: row.pair, times: [] };
     }
     grouped[row.pair].times.push(row.time);
@@ -546,6 +542,7 @@ rulerWrap.addEventListener('touchstart', startDrag, { passive: false });
 rulerWrap.addEventListener('touchmove', onDrag, { passive: false });
 window.addEventListener('touchend', endDrag);
 
+// ASOSIY EKRAN (Faqat indikator, nom va vaqt)
 function renderInstrumentList(){
   const list = document.getElementById('instrumentList');
   const items = INSTRUMENTS.filter(i => currentFilterTypes.includes(i.type));
