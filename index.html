@@ -88,6 +88,17 @@
   .sheet-content { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
   
   select:focus, input:focus { outline: none; }
+
+  /* Pulse animatsiyasi (Faol sessiya uchun) */
+  .pulse-dot-active {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+    animation: pulse-green 2s infinite;
+  }
+  @keyframes pulse-green {
+    0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+    70% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+  }
 </style>
 </head>
 <body class="bg-gray-900 text-gray-100 transition-colors">
@@ -116,6 +127,7 @@
   <section class="bg-gray-800 rounded-2xl p-4 shadow-sm text-gray-100">
     <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
       <h3 class="font-bold text-base">Likvidlik shkalasi</h3>
+      <!-- Vaqt katakchasi (tanlovni bekor qilish uchun ham ishlaydi) -->
       <button id="timeBadge" class="text-sm font-mono font-semibold bg-gray-700 text-gray-300 px-3 py-1 rounded-lg border border-gray-600 transition-colors hover:bg-gray-600 focus:outline-none">
         --:-- - --:--
       </button>
@@ -204,6 +216,28 @@ function liquidityAt(utcHour){
   if (london || ny) return 'high';
   if (tokyo) return 'medium';
   return 'low';
+}
+
+// Vaqt oralig'ida ekanligini tekshirish funksiyasi (Faol sessiya uchun)
+function isTimeInRange(timeStr, currentMinutes) {
+  try {
+    const parts = timeStr.split(' - ');
+    if (parts.length !== 2) return false;
+    const [startStr, endStr] = parts;
+    const [startH, startM] = startStr.split(':').map(Number);
+    const [endH, endM] = endStr.split(':').map(Number);
+    
+    let startTotal = startH * 60 + startM;
+    let endTotal = endH * 60 + endM;
+    
+    if (endTotal < startTotal) {
+      return currentMinutes >= startTotal || currentMinutes <= endTotal;
+    } else {
+      return currentMinutes >= startTotal && currentMinutes <= endTotal;
+    }
+  } catch (e) {
+    return false;
+  }
 }
 
 document.addEventListener('focusout', function(e) {
@@ -303,7 +337,6 @@ function closeMenuSheet() {
   setTimeout(() => menuSheet.classList.add('pointer-events-none'), 300);
 }
 
-// TUZATILGAN: Select kengligi w-32 qilindi, nomlar to'liq ko'rinadi
 function renderTimeRows() {
   const uniquePairs = [...new Set(INSTRUMENTS.map(i => i.pair))];
   
@@ -313,7 +346,6 @@ function renderTimeRows() {
         
         <div class="flex-1 flex items-center bg-gray-700/50 border border-gray-600 rounded-lg overflow-hidden focus-within:border-brand-500 transition-colors">
           
-          <!-- Select: w-32 qilib kengaytirildi -->
           <select class="w-32 flex-shrink-0 bg-transparent text-gray-200 text-base py-1.5 pl-2 pr-1 outline-none" data-index="${index}" data-field="pair">
             ${uniquePairs.map(p => `<option value="${p}" class="bg-gray-800" ${row.pair === p ? 'selected' : ''}>${p}</option>`).join('')}
           </select>
@@ -434,6 +466,7 @@ function updateTimeBadge(){
   }
 }
 
+// Vaqt katakchasini bosganda tanlovni bekor qilish
 document.getElementById('timeBadge').addEventListener('click', () => {
   if (selectedHour !== null) {
     selectedHour = null;
@@ -473,13 +506,21 @@ function getHourFromX(clientX) {
   return null;
 }
 
+// Boshlang'ich bosishda tanlash yoki bekor qilish mantiqi
 function startDrag(e) {
   isDragging = true;
   const x = e.touches ? e.touches[0].clientX : e.clientX;
   const hour = getHourFromX(x);
   if (hour !== null) {
-    selectedHour = hour; lastSelectedHour = hour;
-    renderRuler(); updateTimeBadge();
+    // Agar o'sha vaqt allaqachon tanlangan bo'lsa, bekor qilamiz
+    if (selectedHour === hour) {
+      selectedHour = null;
+    } else {
+      selectedHour = hour;
+    }
+    lastSelectedHour = hour;
+    renderRuler(); 
+    updateTimeBadge();
     requestAnimationFrame(() => setTimeout(updateNowLine, 10));
   }
 }
@@ -490,8 +531,10 @@ function onDrag(e) {
   const x = e.touches ? e.touches[0].clientX : e.clientX;
   const hour = getHourFromX(x);
   if (hour !== null && hour !== lastSelectedHour) {
-    selectedHour = hour; lastSelectedHour = hour;
-    renderRuler(); updateTimeBadge();
+    selectedHour = hour; 
+    lastSelectedHour = hour;
+    renderRuler(); 
+    updateTimeBadge();
     requestAnimationFrame(() => setTimeout(updateNowLine, 10));
   }
 }
@@ -505,6 +548,7 @@ rulerWrap.addEventListener('touchstart', startDrag, { passive: false });
 rulerWrap.addEventListener('touchmove', onDrag, { passive: false });
 window.addEventListener('touchend', endDrag);
 
+// Faol sessiya indikatori bilan ro'yxatni chizish
 function renderInstrumentList(){
   const list = document.getElementById('instrumentList');
   const items = INSTRUMENTS.filter(i => currentFilterTypes.includes(i.type));
@@ -514,15 +558,35 @@ function renderInstrumentList(){
     return;
   }
 
+  const now = new Date();
+  let currentMinutes = ((now.getUTCHours() + tzOffset) * 60 + now.getUTCMinutes() + 1440) % 1440;
+
   list.innerHTML = items.map((i) => {
     let timeStr = i.times.map(t => `<div>${t}</div>`).join('');
     const isExpanded = expandedInstrument === i.pair;
 
+    // Faol holatni tekshirish
+    let isActive = false;
+    if (i.times && i.times.length > 0) {
+      for (const time of i.times) {
+        if (isTimeInRange(time, currentMinutes)) {
+          isActive = true;
+          break;
+        }
+      }
+    }
+
+    // Indikator HTML (Yoniq yoki Kulrang)
+    const indicatorHtml = isActive 
+      ? `<span class="w-2.5 h-2.5 bg-green-500 rounded-full mr-2 flex-shrink-0 pulse-dot-active"></span>` 
+      : `<span class="w-2.5 h-2.5 bg-gray-500 rounded-full mr-2 flex-shrink-0"></span>`;
+
     return `
       <div class="bg-gray-700/50 border border-gray-700 rounded-xl overflow-hidden transition-all duration-300">
         <div class="inst-header flex flex-row items-center justify-between gap-3 p-4 cursor-pointer hover:bg-gray-700/80 transition-colors" data-pair="${i.pair}">
-          <div class="min-w-0 flex-1">
-            <p class="font-bold text-base text-white">${i.pair}</p>
+          <div class="min-w-0 flex-1 flex items-center">
+            ${indicatorHtml}
+            <p class="font-bold text-base text-white truncate">${i.pair}</p>
           </div>
           <div class="flex-shrink-0">
             <div class="flex flex-col text-sm font-mono font-bold text-gray-200 bg-gray-800 px-3 py-1.5 rounded-lg border border-gray-600">
@@ -553,7 +617,15 @@ function renderInstrumentList(){
   updateTimeBadge();
   setTimeout(updateNowLine, 100);
   setInterval(() => updateNowLine(), 1000);
-  setInterval(() => { if (selectedHour === null) updateTimeBadge(); }, 60000);
+  
+  // Har daqiqada indikator holatini yangilab turish
+  setInterval(() => {
+    if (selectedHour === null) {
+      updateTimeBadge();
+    }
+    renderInstrumentList();
+  }, 60000);
+  
   window.addEventListener('resize', updateNowLine);
 })();
 </script>
