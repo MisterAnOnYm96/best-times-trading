@@ -140,8 +140,8 @@
     <div id="rulerWrap" class="ruler-wrap"></div>
     <div class="ruler-base" id="rulerBase"></div>
 
-    <!-- Ma'lumot paneli (2 qatorli) -->
-    <div id="segInfo" class="mt-4 text-sm bg-gray-50 dark:bg-gray-700/40 rounded-xl px-4 py-3 text-gray-600 dark:text-gray-300 flex flex-col gap-1">
+    <!-- Ma'lumot paneli (balandligi qat'iy, sakramaydi) -->
+    <div id="segInfo" class="mt-4 text-sm bg-gray-50 dark:bg-gray-700/40 rounded-xl px-4 py-3 text-gray-600 dark:text-gray-300 flex flex-col justify-center min-h-[64px]">
       <!-- JS tomonidan to'ldiriladi -->
     </div>
   </section>
@@ -220,8 +220,6 @@ function renderRuler(){
     seg.dataset.utc = utc;
     seg.title = `${formatLocalTime(utc)} — ${liquidityLabel(liq)}`;
     
-    // Ichida hech qanday raqam yo'q!
-    
     seg.addEventListener('click', () => {
       selectedHour = (selectedHour === utc) ? null : utc;
       renderRuler();
@@ -246,16 +244,16 @@ function renderRuler(){
 function renderSegInfo(){
   const info = document.getElementById('segInfo');
   
-  // Agar hech narsa tanlanmagan bo'lsa
+  // Standart holat (hech narsa tanlanmagan)
   if (selectedHour === null){
     info.innerHTML = `
-      <div class="font-medium text-gray-800 dark:text-gray-200">Vaqt tanlang</div>
-      <div class="text-gray-500 dark:text-gray-400">Likvidlik: -</div>
+      <div class="font-mono font-bold text-base text-gray-800 dark:text-gray-200">Vaqt tanlang</div>
+      <div class="font-mono font-bold text-base text-gray-500 dark:text-gray-400">Likvidlik: -</div>
     `;
     return;
   }
   
-  // Agar tanlangan bo'lsa
+  // Tanlangan holat
   const liq = liquidityAt(selectedHour);
   const colors = { 
     overlap: 'text-emerald-600 dark:text-emerald-400', 
@@ -268,7 +266,7 @@ function renderSegInfo(){
     <div class="font-mono font-bold text-base text-gray-800 dark:text-gray-200">
       ${formatLocalTime(selectedHour)} – ${formatLocalTime(selectedHour+1)}
     </div>
-    <div class="${colors[liq]} font-semibold">
+    <div class="font-mono font-bold text-base ${colors[liq]}">
       Likvidlik: ${liquidityLabel(liq)}
     </div>
   `;
