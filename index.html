@@ -15,32 +15,124 @@
 </script>
 <style>
   /* ===== TIMELINE RULER ===== */
-  .ruler-wrap { display: flex; align-items: flex-end; gap: 2px; height: 120px; padding: 8px 0 0 0; overflow: visible; }
+  .ruler-wrap { 
+    display: flex; 
+    align-items: flex-end; 
+    gap: 2px; 
+    height: 80px; /* umumiy balandlik kamaytirildi */
+    padding: 8px 0 0 0; 
+    overflow: visible; 
+    position: relative;
+  }
   .ruler-seg {
-    flex: 1 1 0; min-width: 0; height: 70px; border-radius: 6px 6px 0 0; position: relative;
-    cursor: pointer; transition: all .35s cubic-bezier(.4,0,.2,1); display: flex;
-    flex-direction: column; justify-content: flex-end; align-items: center; padding-bottom: 4px;
-    font-family: ui-monospace, monospace; font-size: 11px; color: #fff; user-select: none;
+    flex: 1 1 0; 
+    min-width: 0; 
+    height: 40px; /* bo'laklar balandligi kamaytirildi */
+    border-radius: 4px 4px 0 0; 
+    position: relative;
+    cursor: pointer; 
+    transition: all .35s cubic-bezier(.4,0,.2,1); 
+    display: flex;
+    flex-direction: column; 
+    justify-content: center; 
+    align-items: center; 
+    font-family: ui-monospace, monospace; 
+    font-size: 11px; 
+    color: #fff; 
+    user-select: none;
   }
   .ruler-seg:hover { filter: brightness(1.08); }
-  .ruler-seg.active {
-    flex: 4 1 0; height: 110px; z-index: 10; box-shadow: 0 6px 24px rgba(0,0,0,.25);
-    border-radius: 10px 10px 0 0; font-size: 14px; font-weight: 700;
+  
+  /* Raqamlarni yashirish, faqat hover yoki active bo'lganda ko'rsatish */
+  .ruler-seg span {
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
   }
-  .ruler-wrap.has-active .ruler-seg:not(.active) { flex: 0.55 1 0; height: 50px; opacity: .55; font-size: 9px; }
-  .ruler-seg.now::after {
-    content: ''; position: absolute; bottom: -10px; left: 50%; transform: translateX(-50%);
-    width: 8px; height: 8px; border-radius: 50%; background: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.25);
+  .ruler-seg:hover span,
+  .ruler-seg.active span {
+    opacity: 1;
   }
-  .ruler-base { position: relative; height: 1px; background: currentColor; opacity: .25; margin-top: 0; }
-  .ruler-base .tick { position: absolute; top: -6px; width: 1px; height: 6px; background: currentColor; opacity: .5; }
-  .ruler-base .tick.major { height: 12px; top: -12px; opacity: .8; }
 
+  /* Kattalashgan segment */
+  .ruler-seg.active {
+    flex: 3 1 0; 
+    height: 70px; /* aktiv bo'lganda balandroq */
+    z-index: 10; 
+    box-shadow: 0 4px 12px rgba(0,0,0,.25);
+    border-radius: 6px 6px 0 0; 
+    font-size: 14px; 
+    font-weight: 700;
+  }
+  
+  .ruler-wrap.has-active .ruler-seg:not(.active) { 
+    flex: 0.6 1 0; 
+    height: 30px; 
+    opacity: .6; 
+  }
+  
+  /* Hozirgi soat belgisi */
+  .ruler-seg.now::after {
+    content: ''; 
+    position: absolute; 
+    bottom: -6px; 
+    left: 50%; 
+    transform: translateX(-50%);
+    width: 6px; 
+    height: 6px; 
+    border-radius: 50%; 
+    background: #3b82f6; 
+    box-shadow: 0 0 0 2px rgba(59,130,246,.25);
+  }
+
+  /* Lineyka (shkala) chizig'i */
+  .ruler-base { 
+    position: relative; 
+    height: 1px; 
+    background: currentColor; 
+    opacity: .25; 
+    margin-top: 0; 
+  }
+  .ruler-base .tick { 
+    position: absolute; 
+    top: -4px; 
+    width: 1px; 
+    height: 4px; 
+    background: currentColor; 
+    opacity: .5; 
+  }
+  .ruler-base .tick.major { 
+    height: 8px; 
+    top: -8px; 
+    opacity: .8; 
+  }
+
+  /* Ranglar */
   .liq-overlap { background: linear-gradient(180deg,#34d399,#059669); }
   .liq-high    { background: #22c55e; }
   .liq-medium  { background: #facc15; color:#3f3f46; }
   .liq-low     { background: #cbd5e1; color:#64748b; }
   .dark .liq-low { background: #475569; color:#cbd5e1; }
+
+  /* Pastki shkala (legend) */
+  .legend-bar {
+    display: flex;
+    width: 100%;
+    margin-top: 8px;
+    font-size: 11px;
+    text-align: center;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .legend-bar > div {
+    padding: 4px 0;
+    color: #fff;
+    font-weight: 500;
+  }
+  .legend-bar > div.low { background: #94a3b8; color: #fff; }
+  .legend-bar > div.medium { background: #facc15; color: #3f3f46; }
+  .legend-bar > div.high { background: #22c55e; color: #fff; }
+  .legend-bar > div.overlap { background: linear-gradient(90deg, #34d399, #059669); color: #fff; }
 </style>
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-colors">
@@ -67,21 +159,26 @@
 
   <!-- 24 SOATLIK TIMELINE RULER -->
   <section class="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm text-gray-800 dark:text-gray-100">
-    <div class="flex items-center justify-between mb-3">
-      <h3 class="font-bold">24 soatlik likvidlik shkalasi</h3>
-      <div class="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
-        <span><span class="inline-block w-3 h-3 rounded bg-gradient-to-b from-green-400 to-emerald-600"></span> Overlap</span>
-        <span><span class="inline-block w-3 h-3 rounded bg-green-500"></span> Yuqori</span>
-        <span><span class="inline-block w-3 h-3 rounded bg-yellow-400"></span> O'rta</span>
-        <span><span class="inline-block w-3 h-3 rounded bg-gray-300 dark:bg-gray-600"></span> Past</span>
-      </div>
-    </div>
+    
+    <!-- Sarlavha butun qatorni egallaydi -->
+    <h3 class="font-bold mb-4 w-full">24 soatlik likvidlik shkalasi</h3>
+
+    <!-- Ruler (chiziq) -->
     <div id="rulerWrap" class="ruler-wrap"></div>
     <div class="ruler-base" id="rulerBase"></div>
+
+    <!-- Pastki shkala (Overlap, Yuqori, O'rta, Past) butun qator bo'ylab -->
+    <div class="legend-bar">
+      <div class="low" style="flex: 8;">Past</div>
+      <div class="medium" style="flex: 6;">O'rta</div>
+      <div class="high" style="flex: 6;">Yuqori</div>
+      <div class="overlap" style="flex: 4;">Overlap</div>
+    </div>
+
+    <!-- Ma'lumot paneli -->
     <div id="segInfo" class="mt-4 text-sm bg-gray-50 dark:bg-gray-700/40 rounded-xl px-4 py-3 min-h-[52px] text-gray-600 dark:text-gray-300">
       Soatni tanlang — likvidlik va tavsiya ko'rsatiladi.
     </div>
-    <p class="text-xs text-gray-400 mt-3">⭐ London–New York overlap — eng yuqori likvidlik davri</p>
   </section>
 
   <!-- JUFTLIKLAR BO'YICHA -->
@@ -99,36 +196,14 @@
 
 <script>
 // ================== MA'LUMOTLAR ==================
-// Ranglar olib tashlandi, faqat kerakli ma'lumot qoldi
 const INSTRUMENTS = [
-  { 
-    type: 'Forex', pair: 'EURUSD', name: 'EURO / US DOLLAR', 
-    utcStart: 1, utcEnd: 5
-  },
-  { 
-    type: 'Forex', pair: 'USDCAD', name: 'US DOLLAR / CANADIAN DOLLAR', 
-    utcStart: 12, utcEnd: 17
-  },
-  { 
-    type: 'Forex', pair: 'USDJPY', name: 'US DOLLAR / JAPANESE YEN', 
-    utcStart: 12, utcEnd: 17
-  },
-  { 
-    type: 'Forex', pair: 'GBPJPY', name: 'BRITISH POUND / JAPANESE YEN', 
-    utcStart: 4, utcEnd: 8
-  },
-  { 
-    type: 'Metall', pair: 'XAUUSD', name: 'GOLD', 
-    utcStart: 7, utcEnd: 12
-  },
-  { 
-    type: 'Indeks', pair: 'US30', name: 'DOW JONES', 
-    utcStart: 1, utcEnd: 6, utcStart2: 11.5, utcEnd2: 17
-  },
-  { 
-    type: 'Forex', pair: 'AUDUSD', name: 'AUSTRALIAN DOLLAR / US DOLLAR', 
-    utcStart: 23, utcEnd: 3, utcStart2: 12, utcEnd2: 16
-  },
+  { type: 'Forex', pair: 'EURUSD', name: 'EURO / US DOLLAR', utcStart: 1, utcEnd: 5 },
+  { type: 'Forex', pair: 'USDCAD', name: 'US DOLLAR / CANADIAN DOLLAR', utcStart: 12, utcEnd: 17 },
+  { type: 'Forex', pair: 'USDJPY', name: 'US DOLLAR / JAPANESE YEN', utcStart: 12, utcEnd: 17 },
+  { type: 'Forex', pair: 'GBPJPY', name: 'BRITISH POUND / JAPANESE YEN', utcStart: 4, utcEnd: 8 },
+  { type: 'Metall', pair: 'XAUUSD', name: 'GOLD', utcStart: 7, utcEnd: 12 },
+  { type: 'Indeks', pair: 'US30', name: 'DOW JONES', utcStart: 1, utcEnd: 6, utcStart2: 11.5, utcEnd2: 17 },
+  { type: 'Forex', pair: 'AUDUSD', name: 'AUSTRALIAN DOLLAR / US DOLLAR', utcStart: 23, utcEnd: 3, utcStart2: 12, utcEnd2: 16 },
 ];
 
 // ================== HOLAT ==================
@@ -180,7 +255,10 @@ function renderRuler(){
     if (selectedHour !== null && utc === selectedHour) seg.classList.add('active');
     seg.dataset.utc = utc;
     seg.title = `${formatLocalTime(utc)} — ${liquidityLabel(liq)}`;
-    seg.textContent = pad(local);
+    
+    // Raqamni span ichiga olamiz, CSS orqali yashiriladi
+    seg.innerHTML = `<span>${pad(local)}</span>`;
+    
     seg.addEventListener('click', () => {
       selectedHour = (selectedHour === utc) ? null : utc;
       renderRuler();
@@ -252,7 +330,6 @@ function renderInstrumentList(type){
       timeStr += `<br><span class="text-xs text-gray-400 dark:text-gray-500">va</span> ${formatLocalTime(i.utcStart2)} – ${formatLocalTime(i.utcEnd2)}`;
     }
 
-    // Faqat matn, hech qanday bayroq yoki emoji yo'q
     return `
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-gray-50 dark:bg-gray-700/40 border border-gray-100 dark:border-gray-700">
         <div>
