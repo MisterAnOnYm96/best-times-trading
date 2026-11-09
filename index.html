@@ -127,7 +127,6 @@
   <section class="bg-gray-800 rounded-2xl p-4 shadow-sm text-gray-100">
     <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
       <h3 class="font-bold text-base">Likvidlik shkalasi</h3>
-      <!-- Vaqt katakchasi (tanlovni bekor qilish uchun ham ishlaydi) -->
       <button id="timeBadge" class="text-sm font-mono font-semibold bg-gray-700 text-gray-300 px-3 py-1 rounded-lg border border-gray-600 transition-colors hover:bg-gray-600 focus:outline-none">
         --:-- - --:--
       </button>
@@ -218,7 +217,6 @@ function liquidityAt(utcHour){
   return 'low';
 }
 
-// Vaqt oralig'ida ekanligini tekshirish funksiyasi (Faol sessiya uchun)
 function isTimeInRange(timeStr, currentMinutes) {
   try {
     const parts = timeStr.split(' - ');
@@ -343,16 +341,12 @@ function renderTimeRows() {
   timeRowsContainer.innerHTML = tempTimeRows.map((row, index) => {
     return `
       <div class="flex items-center gap-1 w-full">
-        
         <div class="flex-1 flex items-center bg-gray-700/50 border border-gray-600 rounded-lg overflow-hidden focus-within:border-brand-500 transition-colors">
-          
           <select class="w-32 flex-shrink-0 bg-transparent text-gray-200 text-base py-1.5 pl-2 pr-1 outline-none" data-index="${index}" data-field="pair">
             ${uniquePairs.map(p => `<option value="${p}" class="bg-gray-800" ${row.pair === p ? 'selected' : ''}>${p}</option>`).join('')}
           </select>
-          
           <input type="text" class="flex-1 w-full bg-transparent text-gray-200 text-base py-1.5 px-2 outline-none font-mono" placeholder="06:00 - 08:00" value="${row.time}" data-index="${index}" data-field="time">
         </div>
-        
         <button class="text-red-400 hover:text-red-300 p-1 flex-shrink-0 transition-colors" onclick="removeTimeRow(${index})">
           <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -466,7 +460,6 @@ function updateTimeBadge(){
   }
 }
 
-// Vaqt katakchasini bosganda tanlovni bekor qilish
 document.getElementById('timeBadge').addEventListener('click', () => {
   if (selectedHour !== null) {
     selectedHour = null;
@@ -506,15 +499,19 @@ function getHourFromX(clientX) {
   return null;
 }
 
-// Boshlang'ich bosishda tanlash yoki bekor qilish mantiqi
+// TUZATILGAN JOY: e.preventDefault() qo'shildi
 function startDrag(e) {
+  if (e.type === 'touchstart') {
+    e.preventDefault(); // Bu "soxta" mousedown hodisasini to'xtatadi!
+  }
+  
   isDragging = true;
   const x = e.touches ? e.touches[0].clientX : e.clientX;
   const hour = getHourFromX(x);
+  
   if (hour !== null) {
-    // Agar o'sha vaqt allaqachon tanlangan bo'lsa, bekor qilamiz
     if (selectedHour === hour) {
-      selectedHour = null;
+      selectedHour = null; 
     } else {
       selectedHour = hour;
     }
@@ -544,11 +541,11 @@ function endDrag() { isDragging = false; }
 rulerWrap.addEventListener('mousedown', startDrag);
 rulerWrap.addEventListener('mousemove', onDrag);
 window.addEventListener('mouseup', endDrag);
+
 rulerWrap.addEventListener('touchstart', startDrag, { passive: false });
 rulerWrap.addEventListener('touchmove', onDrag, { passive: false });
 window.addEventListener('touchend', endDrag);
 
-// Faol sessiya indikatori bilan ro'yxatni chizish
 function renderInstrumentList(){
   const list = document.getElementById('instrumentList');
   const items = INSTRUMENTS.filter(i => currentFilterTypes.includes(i.type));
@@ -565,7 +562,6 @@ function renderInstrumentList(){
     let timeStr = i.times.map(t => `<div>${t}</div>`).join('');
     const isExpanded = expandedInstrument === i.pair;
 
-    // Faol holatni tekshirish
     let isActive = false;
     if (i.times && i.times.length > 0) {
       for (const time of i.times) {
@@ -576,7 +572,6 @@ function renderInstrumentList(){
       }
     }
 
-    // Indikator HTML (Yoniq yoki Kulrang)
     const indicatorHtml = isActive 
       ? `<span class="w-2.5 h-2.5 bg-green-500 rounded-full mr-2 flex-shrink-0 pulse-dot-active"></span>` 
       : `<span class="w-2.5 h-2.5 bg-gray-500 rounded-full mr-2 flex-shrink-0"></span>`;
@@ -617,15 +612,12 @@ function renderInstrumentList(){
   updateTimeBadge();
   setTimeout(updateNowLine, 100);
   setInterval(() => updateNowLine(), 1000);
-  
-  // Har daqiqada indikator holatini yangilab turish
   setInterval(() => {
     if (selectedHour === null) {
       updateTimeBadge();
     }
     renderInstrumentList();
   }, 60000);
-  
   window.addEventListener('resize', updateNowLine);
 })();
 </script>
