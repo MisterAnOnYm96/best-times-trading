@@ -117,11 +117,42 @@
   /* Drag va Drop effektlari */
   .drag-ghost {
     opacity: 0.4;
-    background-color: #374151; /* gray-700 */
-    border: 1px dashed #60a5fa; /* blue-400 */
+    background-color: #374151;
+    border: 1px dashed #60a5fa;
   }
   .sortable-item {
-    touch-action: pan-y; /* Sudrab o'tishda scroll bo'lishi uchun */
+    touch-action: pan-y;
+  }
+
+  /* Chiroyli Checkbox (Galochka) dizayni */
+  .custom-checkbox {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    border: 2px solid #6b7280; /* text-gray-500 */
+    border-radius: 4px;
+    background-color: transparent;
+    cursor: pointer;
+    position: relative;
+    outline: none;
+    flex-shrink: 0;
+    transition: all 0.2s;
+  }
+  .custom-checkbox:checked {
+    background-color: #3b82f6; /* brand-500 */
+    border-color: #3b82f6;
+  }
+  .custom-checkbox:checked::after {
+    content: '';
+    position: absolute;
+    left: 6px;
+    top: 2px;
+    width: 5px;
+    height: 10px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
   }
 </style>
 </head>
@@ -133,14 +164,11 @@
     <h1 class="font-bold text-lg">📊 Trading Times</h1>
     
     <div class="flex items-center gap-1">
-      
-      <!-- TARTIBLASH TUGMASI (Yangi qo'shildi) -->
+      <!-- Tartiblash tugmasi -->
       <button id="sortBtn" class="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-gray-700 transition-colors" title="Tartiblash">
-        <!-- Standart holat: Strelkalar -->
         <svg id="sortIconDefault" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
         </svg>
-        <!-- Bosilganda: Galochka -->
         <svg id="sortIconCheck" class="w-5 h-5 text-green-400 hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
         </svg>
@@ -176,7 +204,6 @@
   </section>
 
   <section class="space-y-1">
-    <!-- id="sortableList" qo'shildi -->
     <div id="instrumentList" class="space-y-1"></div>
   </section>
 </main>
@@ -206,25 +233,24 @@
   </div>
 </div>
 
-<!-- SortableJS kutubxonasi (Drag & Drop uchun) -->
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 
 <script>
 let INSTRUMENTS = [
-  { type: 'Forex', pair: 'EURUSD', times: ['01:00 - 01:59'] },
-  { type: 'Forex', pair: 'USDCAD', times: ['12:00 - 12:59'] },
-  { type: 'Forex', pair: 'USDJPY', times: ['12:00 - 12:59'] },
-  { type: 'Forex', pair: 'GBPJPY', times: ['04:00 - 04:59'] },
-  { type: 'Metall', pair: 'XAUUSD', times: ['07:00 - 07:59'] },
-  { type: 'Indeks', pair: 'US30', times: ['01:00 - 01:59', '11:30 - 12:29'] },
-  { type: 'Forex', pair: 'AUDUSD', times: ['23:00 - 23:59', '12:00 - 12:59'] },
+  { type: 'Forex', pair: 'EURUSD', times: ['01:00 - 01:59'], isVisible: true },
+  { type: 'Forex', pair: 'USDCAD', times: ['12:00 - 12:59'], isVisible: true },
+  { type: 'Forex', pair: 'USDJPY', times: ['12:00 - 12:59'], isVisible: true },
+  { type: 'Forex', pair: 'GBPJPY', times: ['04:00 - 04:59'], isVisible: true },
+  { type: 'Metall', pair: 'XAUUSD', times: ['07:00 - 07:59'], isVisible: true },
+  { type: 'Indeks', pair: 'US30', times: ['01:00 - 01:59', '11:30 - 12:29'], isVisible: true },
+  { type: 'Forex', pair: 'AUDUSD', times: ['23:00 - 23:59', '12:00 - 12:59'], isVisible: true },
 ];
 
 let tzOffset = -new Date().getTimezoneOffset() / 60; 
 let selectedHour = null;
 let currentFilterTypes = ['Forex', 'Metall', 'Indeks']; 
-let isSorting = false; // Tartiblash rejimi yoqilganmi?
-let sortableInstance = null; // SortableJS obyekti
+let isSorting = false; 
+let sortableInstance = null; 
 
 function pad(n){ return String(Math.floor(n)).padStart(2,'0'); }
 
@@ -293,7 +319,7 @@ document.addEventListener('focusout', function(e) {
   }
 });
 
-// ================= SORTING (TARTIBLASH) MANTIG'I =================
+// SORTING
 const sortBtn = document.getElementById('sortBtn');
 const sortIconDefault = document.getElementById('sortIconDefault');
 const sortIconCheck = document.getElementById('sortIconCheck');
@@ -302,34 +328,29 @@ sortBtn.addEventListener('click', () => {
   isSorting = !isSorting;
   
   if (isSorting) {
-    // Tartiblash rejimi YOQILDI
     sortIconDefault.classList.add('hidden');
     sortIconCheck.classList.remove('hidden');
-    sortBtn.classList.add('bg-gray-700'); // Tugma fondini ajratish
-    renderInstrumentList(); // Tutqichlarni chiqarish uchun qayta chizamiz
+    sortBtn.classList.add('bg-gray-700');
+    renderInstrumentList(); 
     
-    // SortableJS ni ishga tushirish
     const listEl = document.getElementById('instrumentList');
     sortableInstance = new Sortable(listEl, {
       animation: 150,
-      handle: '.drag-handle', // Faqat tutqichdan ushlab sudrash mumkin
+      handle: '.drag-handle', 
       ghostClass: 'drag-ghost',
       onEnd: function (evt) {
-        // HTML elementlarning yangi tartibini o'qib olamiz
         const newOrderPairs = [];
         const items = listEl.querySelectorAll('.sortable-item');
         items.forEach(item => {
           newOrderPairs.push(item.dataset.pair);
         });
 
-        // INSTRUMENTS massivini yangi tartibga moslaymiz
         let newInstruments = [];
         newOrderPairs.forEach(pair => {
           const inst = INSTRUMENTS.find(i => i.pair === pair);
           if (inst) newInstruments.push(inst);
         });
         
-        // Filterdan yashirilgan (ko'rinmayotgan) instrumentlarni ham qo'shib qo'yamiz (oxiriga)
         INSTRUMENTS.forEach(inst => {
           if (!newOrderPairs.includes(inst.pair)) {
             newInstruments.push(inst);
@@ -340,7 +361,6 @@ sortBtn.addEventListener('click', () => {
       }
     });
   } else {
-    // Tartiblash rejimi O'CHIRILDI (Saqlash)
     sortIconCheck.classList.add('hidden');
     sortIconDefault.classList.remove('hidden');
     sortBtn.classList.remove('bg-gray-700');
@@ -349,10 +369,9 @@ sortBtn.addEventListener('click', () => {
       sortableInstance.destroy();
       sortableInstance = null;
     }
-    renderInstrumentList(); // Tutqichlarni olib tashlash uchun qayta chizamiz
+    renderInstrumentList(); 
   }
 });
-// =================================================================
 
 // FILTR
 const filterSheet = document.getElementById('filterSheet');
@@ -429,10 +448,11 @@ function openMenuSheet() {
           pair: inst.pair, 
           type: inst.type, 
           startH: match[1], startM: match[2], 
-          endH: match[3], endM: match[4] 
+          endH: match[3], endM: match[4],
+          isChecked: inst.isVisible // Mavjud holatni saqlab qolamiz
         });
       } else {
-        tempTimeRows.push({ pair: inst.pair, type: inst.type, startH: '00', startM: '00', endH: '00', endM: '00' });
+        tempTimeRows.push({ pair: inst.pair, type: inst.type, startH: '00', startM: '00', endH: '00', endM: '00', isChecked: inst.isVisible });
       }
     });
   });
@@ -449,6 +469,7 @@ function closeMenuSheet() {
   setTimeout(() => menuSheet.classList.add('pointer-events-none'), 300);
 }
 
+// QATORLARNI CHIZISH (Checkbox qo'shildi)
 function renderTimeRows() {
   const uniquePairs = [...new Set(INSTRUMENTS.map(i => i.pair))];
   
@@ -456,10 +477,19 @@ function renderTimeRows() {
     return `
       <div class="flex items-center gap-1 w-full">
         
+        <!-- Checkbox (Galochka) -->
+        <input type="checkbox" class="custom-checkbox mr-1" 
+               id="check-${index}" 
+               data-index="${index}" 
+               ${row.isChecked ? 'checked' : ''} 
+               onchange="toggleCheck(${index}, this.checked)">
+        
+        <!-- Instrument tanlash -->
         <select class="w-24 flex-shrink-0 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 text-sm py-1.5 px-1 outline-none" data-index="${index}" data-field="pair">
           ${uniquePairs.map(p => `<option value="${p}" class="bg-gray-800" ${row.pair === p ? 'selected' : ''}>${p}</option>`).join('')}
         </select>
 
+        <!-- Vaqt kiritish -->
         <div class="flex-1 flex items-center justify-center bg-gray-700/50 border border-gray-600 rounded-lg px-1 py-1 focus-within:border-brand-500 transition-colors">
           
           <input type="number" id="startH-${index}" min="0" max="23" placeholder="00" value="${row.startH}" 
@@ -488,6 +518,7 @@ function renderTimeRows() {
           
         </div>
         
+        <!-- O'chirish -->
         <button class="text-red-400 hover:text-red-300 p-1 flex-shrink-0 transition-colors" onclick="removeTimeRow(${index})">
           <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -497,7 +528,7 @@ function renderTimeRows() {
     `;
   }).join('');
 
-  timeRowsContainer.querySelectorAll('select, input').forEach(el => {
+  timeRowsContainer.querySelectorAll('select, input[type="number"]').forEach(el => {
     el.addEventListener('change', (e) => {
       const index = e.target.dataset.index;
       const field = e.target.dataset.field;
@@ -514,6 +545,13 @@ function renderTimeRows() {
     });
   });
 }
+
+// Checkbox bosilganda isChecked ni o'zgartirish
+window.toggleCheck = function(index, isChecked) {
+  if (tempTimeRows[index]) {
+    tempTimeRows[index].isChecked = isChecked;
+  }
+};
 
 window.handleTimeInput = function(el, nextId) {
   let val = el.value;
@@ -549,6 +587,7 @@ window.removeTimeRow = function(index) {
   }
 }
 
+// YANGI QO'SHILGAN QATOR AVTOMATIK BELGILANMAYDI (isChecked: false)
 addTimeBtn.addEventListener('click', () => {
   const uniquePairs = [...new Set(INSTRUMENTS.map(i => i.pair))];
   const defaultPair = uniquePairs[0];
@@ -558,7 +597,8 @@ addTimeBtn.addEventListener('click', () => {
     tempTimeRows.push({ 
       pair: defaultPair, 
       type: inst ? inst.type : 'Forex', 
-      startH: '00', startM: '00', endH: '00', endM: '00'
+      startH: '00', startM: '00', endH: '00', endM: '00',
+      isChecked: false // Yangi qator belgilanmagan holda qo'shiladi
     });
     renderTimeRows();
   }
@@ -572,11 +612,16 @@ saveMenuBtn.addEventListener('click', () => {
   const grouped = {};
   
   tempTimeRows.forEach(row => {
+    // Bo'sh vaqtlarni tashlab ketamiz
     if (row.startH === '00' && row.startM === '00' && row.endH === '00' && row.endM === '00') return;
+    
     const timeString = `${row.startH}:${row.startM} - ${row.endH}:${row.endM}`;
 
     if (!grouped[row.pair]) {
-      grouped[row.pair] = { type: row.type, pair: row.pair, times: [] };
+      grouped[row.pair] = { type: row.type, pair: row.pair, times: [], isVisible: row.isChecked };
+    } else {
+      // Agar bir xil juftlikning birorta vaqti belgilangan bo'lsa, ko'rinadigan qilamiz
+      if (row.isChecked) grouped[row.pair].isVisible = true;
     }
     grouped[row.pair].times.push(timeString);
   });
@@ -586,17 +631,15 @@ saveMenuBtn.addEventListener('click', () => {
     newInstruments.push(group);
   });
 
-  // Mavjud tartibni saqlab qolish (yangi qo'shilganlarini oxiriga qo'shish)
+  // Mavjud tartibni saqlab qolish
   const currentOrder = INSTRUMENTS.map(i => i.pair);
   let finalInstruments = [];
   
-  // 1. Avval eski tartibdagilarni qo'shamiz (agar ular yangi ro'yxatda bo'lsa)
   currentOrder.forEach(pair => {
     const found = newInstruments.find(i => i.pair === pair);
     if (found) finalInstruments.push(found);
   });
   
-  // 2. Keyin yangi qo'shilganlarni qo'shamiz
   newInstruments.forEach(inst => {
     if (!finalInstruments.find(i => i.pair === inst.pair)) {
       finalInstruments.push(inst);
@@ -727,9 +770,12 @@ rulerWrap.addEventListener('touchstart', startDrag, { passive: false });
 rulerWrap.addEventListener('touchmove', onDrag, { passive: false });
 window.addEventListener('touchend', endDrag);
 
+// ASOSIY EKRANDA FAQAT isVisible: true BO'LGANLAR KO'RINADI
 function renderInstrumentList(){
   const list = document.getElementById('instrumentList');
-  const items = INSTRUMENTS.filter(i => currentFilterTypes.includes(i.type));
+  const items = INSTRUMENTS.filter(i => 
+    currentFilterTypes.includes(i.type) && i.isVisible !== false
+  );
   
   if (items.length === 0) {
     list.innerHTML = `<div class="text-center text-gray-500 py-4 text-sm">Tanlangan guruhda instrumentlar yo'q</div>`;
@@ -756,7 +802,6 @@ function renderInstrumentList(){
       ? `<span class="w-2.5 h-2.5 bg-green-500 rounded-full mr-2 flex-shrink-0 pulse-dot-active"></span>` 
       : `<span class="w-2.5 h-2.5 bg-gray-500 rounded-full mr-2 flex-shrink-0"></span>`;
 
-    // Agar tartiblash rejimi yoqilgan bo'lsa, tutqich (3 ta chiziq) chiqadi
     const dragHandleHtml = isSorting 
       ? `<div class="drag-handle cursor-grab active:cursor-grabbing pr-2 text-gray-400 hover:text-white flex-shrink-0">
            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -765,7 +810,6 @@ function renderInstrumentList(){
          </div>` 
       : '';
 
-    // data-pair atributi SortableJS uchun kerak
     return `
       <div class="sortable-item bg-gray-700/50 border border-gray-700 rounded-xl" data-pair="${i.pair}">
         <div class="flex flex-row items-center justify-between gap-2 px-3 py-2">
