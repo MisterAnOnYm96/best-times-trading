@@ -688,4 +688,118 @@ function startDrag(e) {
   }
   
   isDragging = true;
-  const x = e.touches ? e.touches[
+  const x = e.touches ? e.touches[0].clientX : e.clientX;
+  const hour = getHourFromX(x);
+  
+  if (hour !== null) {
+    if (selectedHour === hour) {
+      selectedHour = null; 
+    } else {
+      selectedHour = hour;
+    }
+    lastSelectedHour = hour;
+    renderRuler(); 
+    updateTimeBadge();
+    requestAnimationFrame(() => setTimeout(updateNowLine, 10));
+  }
+}
+
+function onDrag(e) {
+  if (!isDragging) return;
+  if (e.cancelable) e.preventDefault(); 
+  const x = e.touches ? e.touches[0].clientX : e.clientX;
+  const hour = getHourFromX(x);
+  if (hour !== null && hour !== lastSelectedHour) {
+    selectedHour = hour; 
+    lastSelectedHour = hour;
+    renderRuler(); 
+    updateTimeBadge();
+    requestAnimationFrame(() => setTimeout(updateNowLine, 10));
+  }
+}
+
+function endDrag() { isDragging = false; }
+
+rulerWrap.addEventListener('mousedown', startDrag);
+rulerWrap.addEventListener('mousemove', onDrag);
+window.addEventListener('mouseup', endDrag);
+rulerWrap.addEventListener('touchstart', startDrag, { passive: false });
+rulerWrap.addEventListener('touchmove', onDrag, { passive: false });
+window.addEventListener('touchend', endDrag);
+
+function renderInstrumentList(){
+  const list = document.getElementById('instrumentList');
+  const items = INSTRUMENTS.filter(i => currentFilterTypes.includes(i.type));
+  
+  if (items.length === 0) {
+    list.innerHTML = `<div class="text-center text-gray-500 py-4 text-sm">Tanlangan guruhda instrumentlar yo'q</div>`;
+    return;
+  }
+
+  const now = new Date();
+  let currentMinutes = ((now.getUTCHours() + tzOffset) * 60 + now.getUTCMinutes() + 1440) % 1440;
+
+  list.innerHTML = items.map((i) => {
+    let timeStr = i.times.map(t => `<div>${t}</div>`).join('');
+
+    let isActive = false;
+    if (i.times && i.times.length > 0) {
+      for (const time of i.times) {
+        if (isTimeInRange(time, currentMinutes)) {
+          isActive = true;
+          break;
+        }
+      }
+    }
+
+    const indicatorHtml = isActive 
+      ? `<span class="w-2.5 h-2.5 bg-green-500 rounded-full mr-2 flex-shrink-0 pulse-dot-active"></span>` 
+      : `<span class="w-2.5 h-2.5 bg-gray-500 rounded-full mr-2 flex-shrink-0"></span>`;
+
+    // Agar tartiblash rejimi yoqilgan bo'lsa, tutqich (3 ta chiziq) chiqadi
+    const dragHandleHtml = isSorting 
+      ? `<div class="drag-handle cursor-grab active:cursor-grabbing pr-2 text-gray-400 hover:text-white flex-shrink-0">
+           <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16" />
+           </svg>
+         </div>` 
+      : '';
+
+    // data-pair atributi SortableJS uchun kerak
+    return `
+      <div class="sortable-item bg-gray-700/50 border border-gray-700 rounded-xl" data-pair="${i.pair}">
+        <div class="flex flex-row items-center justify-between gap-2 px-3 py-2">
+          <div class="min-w-0 flex-1 flex items-center">
+            ${dragHandleHtml}
+            ${indicatorHtml}
+            <p class="font-bold text-base text-white truncate">${i.pair}</p>
+          </div>
+          <div class="flex-shrink-0">
+            <div class="flex flex-col text-sm font-mono font-bold text-gray-200 bg-gray-800 px-2 py-1 rounded-lg border border-gray-600">
+              ${timeStr}
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+(function init(){
+  tzOffset = -new Date().getTimezoneOffset() / 60;
+  renderInstrumentList();
+  renderRuler();
+  updateTimeBadge();
+  setTimeout(updateNowLine, 100);
+  setInterval(() => updateNowLine(), 1000);
+  setInterval(() => {
+    if (selectedHour === null) {
+      updateTimeBadge();
+    }
+    renderInstrumentList();
+  }, 60000);
+  window.addEventListener('resize', updateNowLine);
+})();
+</script>
+</body>
+</html>
