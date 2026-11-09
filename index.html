@@ -88,7 +88,8 @@
   .sheet-content { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
 </style>
 </head>
-<body class="bg-gray-900 text-gray-100 transition-colors overflow-hidden">
+<!-- overflow-hidden olib tashlandi (sahifa scroll bo'lishi va refresh ishlashi uchun) -->
+<body class="bg-gray-900 text-gray-100 transition-colors">
 
 <!-- HEADER -->
 <header class="bg-gray-800 shadow-sm sticky top-0 z-30">
@@ -113,7 +114,8 @@
   </div>
 </header>
 
-<main class="max-w-6xl mx-auto px-4 py-6 space-y-8 overflow-y-auto h-[calc(100vh-60px)]">
+<!-- main dan overflow va h-balandlik olib tashlandi, shunda sahifa tabiiy scroll bo'ladi -->
+<main class="max-w-6xl mx-auto px-4 py-6 space-y-8">
 
   <!-- KUNLIK TIMELINE RULER -->
   <section class="bg-gray-800 rounded-2xl p-4 shadow-sm text-gray-100">
@@ -141,12 +143,11 @@
   Ma'lumotlar taxminiy. Trading qarorlaringizni o'zingiz qabul qiling.
 </footer>
 
-<!-- ===== FILTR OYNASI (BOTTOM SHEET) ===== -->
+<!-- ===== FILTR OYNASI ===== -->
 <div id="filterSheet" class="fixed inset-0 z-50 pointer-events-none">
   <div id="sheetOverlay" class="absolute inset-0 bg-black/60 opacity-0 sheet-overlay pointer-events-none"></div>
   <div id="sheetContent" class="absolute bottom-0 left-0 right-0 bg-gray-800 rounded-t-3xl p-5 transform translate-y-full sheet-content pointer-events-auto shadow-2xl border-t border-gray-700">
     
-    <!-- Guruhlar ro'yxati (teng bo'lingan) -->
     <div id="filterGroups" class="flex flex-wrap gap-2 mb-6">
       <!-- JS tomonidan to'ldiriladi -->
     </div>
@@ -162,19 +163,15 @@
   <div id="menuOverlay" class="absolute inset-0 bg-black/60 opacity-0 sheet-overlay pointer-events-none"></div>
   <div id="menuContent" class="absolute bottom-0 left-0 right-0 bg-gray-800 rounded-t-3xl p-5 transform translate-y-full sheet-content pointer-events-auto shadow-2xl border-t border-gray-700 max-h-[90vh] flex flex-col">
     
-    <h3 class="text-lg font-bold mb-4">Vaqtni sozlash</h3>
-    
-    <!-- Qo'shilgan qatorlar ro'yxati -->
-    <div id="timeRowsContainer" class="flex flex-col gap-2 mb-3 overflow-y-auto flex-1">
+    <!-- Sarlavha olib tashlandi. Endi to'g'ridan-to'g'ri qatorlar boshlanadi -->
+    <div id="timeRowsContainer" class="flex flex-col gap-2 mb-4 overflow-y-auto flex-1 pt-2">
       <!-- JS tomonidan to'ldiriladi -->
     </div>
 
-    <!-- Qo'shish tugmasi -->
     <button id="addTimeBtn" class="w-full bg-gray-700 hover:bg-gray-600 text-white font-bold py-2.5 rounded-xl transition-colors mb-2 text-sm">
       + Qo'shish
     </button>
 
-    <!-- Saqlash tugmasi -->
     <button id="saveMenuBtn" class="w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 rounded-xl transition-colors">
       Saqlash
     </button>
@@ -183,7 +180,6 @@
 
 <script>
 // ================== MA'LUMOTLAR ==================
-// Standart ma'lumotlar
 let INSTRUMENTS = [
   { type: 'Forex', pair: 'EURUSD', name: 'EURO / US DOLLAR', times: ['01:00 - 01:59'] },
   { type: 'Forex', pair: 'USDCAD', name: 'US DOLLAR / CANADIAN DOLLAR', times: ['12:00 - 12:59'] },
@@ -226,7 +222,17 @@ function formatTimeInterval(startUtcH) {
   return `${pad(hStart)}:${pad(mStart)} - ${displayEnd}`;
 }
 
-// Filtr oynasi
+function liquidityAt(utcHour){
+  const london = utcHour >= 7 && utcHour < 16;
+  const ny = utcHour >= 12 && utcHour < 21;
+  const tokyo = utcHour >= 0 && utcHour < 9;
+  if (london && ny) return 'overlap';
+  if (london || ny) return 'high';
+  if (tokyo) return 'medium';
+  return 'low';
+}
+
+// ================== FILTR MANTIG'I ==================
 const filterSheet = document.getElementById('filterSheet');
 const sheetOverlay = document.getElementById('sheetOverlay');
 const sheetContent = document.getElementById('sheetContent');
@@ -241,7 +247,6 @@ function openSheet() {
   
   filterGroups.innerHTML = types.map(t => {
     const isSelected = tempFilterTypes.includes(t);
-    // flex-1 qo'shildi (teng bo'lishi uchun)
     return `<button class="filter-tag flex-1 px-2 py-2 rounded-lg font-medium text-sm border text-center ${isSelected ? 'bg-brand-500 border-brand-500 text-white' : 'bg-gray-700 border-gray-600 text-gray-300'}" data-type="${t}">${t}</button>`;
   }).join('');
 
@@ -281,7 +286,7 @@ saveFilterBtn.addEventListener('click', () => {
   closeSheet();
 });
 
-// ================== MENYU (VAQTNI SOZLASH) MANTIG'I ==================
+// ================== MENYU (VAQTNI SOZLASH) ==================
 const menuSheet = document.getElementById('menuSheet');
 const menuOverlay = document.getElementById('menuOverlay');
 const menuContent = document.getElementById('menuContent');
@@ -290,22 +295,15 @@ const saveMenuBtn = document.getElementById('saveMenuBtn');
 const addTimeBtn = document.getElementById('addTimeBtn');
 const timeRowsContainer = document.getElementById('timeRowsContainer');
 
-// Yangi qatorlar uchun vaqtinchalik ma'lumot
 let tempTimeRows = [];
 
 function openMenuSheet() {
-  // Mavjud ma'lumotlardan nusxa olamiz
-  // Barcha noyob juftliklarni yig'amiz
-  const uniquePairs = [...new Set(INSTRUMENTS.map(i => i.pair))];
   tempTimeRows = [];
-  
-  // Har bir juftlik uchun vaqtlarni qatorlarga ajratamiz
   INSTRUMENTS.forEach(inst => {
     inst.times.forEach(time => {
       tempTimeRows.push({ pair: inst.pair, name: inst.name, type: inst.type, time: time });
     });
   });
-
   renderTimeRows();
   
   menuSheet.classList.remove('pointer-events-none');
@@ -319,33 +317,26 @@ function closeMenuSheet() {
   setTimeout(() => menuSheet.classList.add('pointer-events-none'), 300);
 }
 
+// Katakchalar balandligi kichraytirildi (p-1.5, text-sm)
 function renderTimeRows() {
-  // Mavjud juftliklar ro'yxati (select uchun)
   const uniquePairs = [...new Set(INSTRUMENTS.map(i => i.pair))];
   
   timeRowsContainer.innerHTML = tempTimeRows.map((row, index) => {
-    // Har bir juftlik uchun tanlangan vaqtlar sonini hisoblaymiz
-    const timesCount = tempTimeRows.filter(r => r.pair === row.pair).length;
-    
     return `
       <div class="flex gap-2 items-center">
-        <!-- Chap: Instrument -->
-        <select class="flex-1 bg-gray-700 border border-gray-600 text-gray-200 text-sm rounded-lg p-2 outline-none" data-index="${index}" data-field="pair">
+        <select class="flex-1 bg-gray-700 border border-gray-600 text-gray-200 text-sm rounded-lg py-1.5 px-2 outline-none" data-index="${index}" data-field="pair">
           ${uniquePairs.map(p => `<option value="${p}" ${row.pair === p ? 'selected' : ''}>${p}</option>`).join('')}
         </select>
         
-        <!-- O'ng: Vaqt oralig'i -->
-        <input type="text" class="w-32 bg-gray-700 border border-gray-600 text-gray-200 text-sm rounded-lg p-2 outline-none text-center font-mono" placeholder="06:00 - 08:00" value="${row.time}" data-index="${index}" data-field="time">
+        <input type="text" class="w-32 bg-gray-700 border border-gray-600 text-gray-200 text-sm rounded-lg py-1.5 px-2 outline-none text-center font-mono" placeholder="06:00 - 08:00" value="${row.time}" data-index="${index}" data-field="time">
         
-        <!-- O'chirish -->
-        <button class="text-red-400 hover:text-red-300 p-2" onclick="removeTimeRow(${index})">
+        <button class="text-red-400 hover:text-red-300 p-1" onclick="removeTimeRow(${index})">
           <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
         </button>
       </div>
     `;
   }).join('');
 
-  // Select va Input larni kuzatish
   timeRowsContainer.querySelectorAll('select, input').forEach(el => {
     el.addEventListener('change', (e) => {
       const index = e.target.dataset.index;
@@ -353,7 +344,6 @@ function renderTimeRows() {
       const val = e.target.value;
       
       if (field === 'pair') {
-        // Agar juftlik o'zgarsa, uning nomi va turini yangilash
         const inst = INSTRUMENTS.find(i => i.pair === val);
         tempTimeRows[index].pair = val;
         if (inst) {
@@ -367,20 +357,16 @@ function renderTimeRows() {
   });
 }
 
-// Qatorni o'chirish
 window.removeTimeRow = function(index) {
   tempTimeRows.splice(index, 1);
   renderTimeRows();
 }
 
 addTimeBtn.addEventListener('click', () => {
-  // Bitta juftlik uchun maksimal 3 ta vaqt cheklovi
   const uniquePairs = [...new Set(INSTRUMENTS.map(i => i.pair))];
   const defaultPair = uniquePairs[0];
   const inst = INSTRUMENTS.find(i => i.pair === defaultPair);
 
-  // Tekshirish: qaysidir juftlikda 3 tadan ko'p bo'lib qolmasin
-  // Hozircha bo'sh qator qo'shamiz
   if (tempTimeRows.length < 20) {
     tempTimeRows.push({ 
       pair: defaultPair, 
@@ -396,29 +382,24 @@ menuBtn.addEventListener('click', openMenuSheet);
 menuOverlay.addEventListener('click', closeMenuSheet);
 
 saveMenuBtn.addEventListener('click', () => {
-  // Ma'lumotlarni qayta yig'ish
   let newInstruments = [];
-  
-  // Har bir juftlik bo'yicha guruhlash
   const grouped = {};
+  
   tempTimeRows.forEach(row => {
-    if (!row.time.trim()) return; // Bo'sh vaqtlarni tashlab ketamiz
+    if (!row.time.trim()) return;
     if (!grouped[row.pair]) {
       grouped[row.pair] = { type: row.type, pair: row.pair, name: row.name, times: [] };
     }
     grouped[row.pair].times.push(row.time);
   });
 
-  // Massivga o'girish
   Object.values(grouped).forEach(group => {
-    // 3 tadan ko'p bo'lsa, faqat birinchi 3 tasini olamiz
     group.times = group.times.slice(0, 3);
     newInstruments.push(group);
   });
 
   INSTRUMENTS = newInstruments;
   
-  // Agar filtrda mavjud bo'lmagan tur bo'lsa, uni qo'shib qo'yish
   const existingTypes = [...new Set(INSTRUMENTS.map(i => i.type))];
   currentFilterTypes = currentFilterTypes.filter(t => existingTypes.includes(t));
   if (currentFilterTypes.length === 0) currentFilterTypes = [...existingTypes];
@@ -444,16 +425,6 @@ function renderRuler(){
   
   if (selectedHour !== null) wrap.classList.add('has-active');
   else wrap.classList.remove('has-active');
-}
-
-function liquidityAt(utcHour){
-  const london = utcHour >= 7 && utcHour < 16;
-  const ny = utcHour >= 12 && utcHour < 21;
-  const tokyo = utcHour >= 0 && utcHour < 9;
-  if (london && ny) return 'overlap';
-  if (london || ny) return 'high';
-  if (tokyo) return 'medium';
-  return 'low';
 }
 
 // ================== VAQT KATAKCHASI ==================
@@ -553,7 +524,6 @@ function renderInstrumentList(){
   }
 
   list.innerHTML = items.map((i) => {
-    // Vaqtlarni birlashtirish
     let timeStr = i.times.map(t => `<div>${t}</div>`).join('');
     const isExpanded = expandedInstrument === i.pair;
 
