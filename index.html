@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="uz">
+<html lang="uz" class="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -50,27 +50,31 @@
   .ruler-seg.active {
     flex: 3 1 0; 
     z-index: 10; 
-    box-shadow: 0 2px 8px rgba(0,0,0,.2);
+    box-shadow: 0 2px 8px rgba(0,0,0,.4);
     border-radius: 4px 4px 0 0; 
   }
   
   .ruler-wrap.has-active .ruler-seg:not(.active) { 
     flex: 0.6 1 0; 
-    opacity: .6; 
+    opacity: .4; 
   }
 
   /* Lineyka (shkala) chizig'i va vaqt belgisi */
   .ruler-base-container {
     position: relative;
     width: 100%;
+    height: 15px; /* chiziqcha uchun joy */
+    margin-top: 2px;
   }
   
   .ruler-base { 
-    position: relative; 
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
     height: 1px; 
     background: currentColor; 
     opacity: .25; 
-    margin-top: 0; 
   }
   
   .ruler-base .tick { 
@@ -87,17 +91,16 @@
     opacity: .8; 
   }
 
-  /* Hozirgi vaqt ko'rsatkichi (chiziqcha) */
-  .now-marker {
+  /* Hozirgi vaqt ko'rsatkichi (gorizontal chiziqcha) */
+  .now-line {
     position: absolute;
-    top: 0; /* lineyka chizig'idan boshlanadi */
-    width: 2px;
-    height: 12px;
+    top: 4px; /* shkala tagidan boshlanadi */
+    height: 4px;
     background: #3b82f6;
-    transform: translateX(-50%);
+    border-radius: 4px;
     z-index: 20;
-    border-radius: 2px;
-    box-shadow: 0 0 4px rgba(59,130,246,.5);
+    box-shadow: 0 0 6px rgba(59,130,246,.6);
+    transition: width 1s linear, left 1s linear;
   }
 
   /* Ranglar */
@@ -108,14 +111,14 @@
   .dark .liq-low { background: #475569; color:#cbd5e1; }
 </style>
 </head>
-<body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-colors">
+<body class="bg-gray-900 text-gray-100 transition-colors">
 
 <!-- HEADER -->
-<header class="bg-white dark:bg-gray-800 shadow-sm sticky top-0 z-30">
+<header class="bg-gray-800 shadow-sm sticky top-0 z-30">
   <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
     <h1 class="font-bold text-lg">📊 Trading Times</h1>
     <div class="flex items-center gap-3">
-      <select id="tzSelect" class="text-sm bg-gray-100 dark:bg-gray-700 rounded-lg px-3 py-1.5 outline-none">
+      <select id="tzSelect" class="text-sm bg-gray-700 rounded-lg px-3 py-1.5 outline-none text-gray-100">
         <option value="5">Toshkent (UTC+5)</option>
         <option value="5.5">Hindiston (UTC+5:30)</option>
         <option value="0">UTC</option>
@@ -123,7 +126,6 @@
         <option value="-5">New York (UTC-5)</option>
         <option value="9">Tokyo (UTC+9)</option>
       </select>
-      <!-- Tema tugmasi olib tashlandi -->
     </div>
   </div>
 </header>
@@ -131,16 +133,16 @@
 <main class="max-w-6xl mx-auto px-4 py-6 space-y-8">
 
   <!-- KUNLIK TIMELINE RULER -->
-  <section class="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm text-gray-800 dark:text-gray-100">
+  <section class="bg-gray-800 rounded-2xl p-4 shadow-sm text-gray-100">
     
     <!-- Sarlavha va Vaqt katakchasi -->
     <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
       <h3 class="font-bold text-base">Likvidlik shkalasi</h3>
       
-      <!-- Vaqt katakchasi -->
-      <div id="timeBadge" class="text-sm font-mono font-semibold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-3 py-1 rounded-lg border border-gray-200 dark:border-gray-600">
+      <!-- Vaqt katakchasi (endi bosiladigan) -->
+      <button id="timeBadge" class="text-sm font-mono font-semibold bg-gray-700 text-gray-300 px-3 py-1 rounded-lg border border-gray-600 transition-colors hover:bg-gray-600 focus:outline-none">
         --:-- - --:--
-      </div>
+      </button>
     </div>
 
     <!-- Ruler -->
@@ -149,12 +151,12 @@
     <!-- Lineyka va hozirgi vaqt belgisi (pastda) -->
     <div class="ruler-base-container">
       <div class="ruler-base" id="rulerBase"></div>
-      <div id="nowMarker" class="now-marker"></div>
+      <div id="nowLine" class="now-line"></div>
     </div>
   </section>
 
   <!-- JUFTLIKLAR BO'YICHA -->
-  <section class="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm">
+  <section class="bg-gray-800 rounded-2xl p-4 shadow-sm">
     <h3 class="font-bold mb-3">Instrument bo'yicha eng yaxshi vaqtlar</h3>
     <div class="flex flex-wrap gap-2 mb-4" id="instrumentFilter"></div>
     <div id="instrumentList" class="space-y-3"></div>
@@ -162,7 +164,7 @@
 
 </main>
 
-<footer class="text-center text-xs text-gray-400 py-6">
+<footer class="text-center text-xs text-gray-500 py-6">
   Ma'lumotlar taxminiy. Trading qarorlaringizni o'zingiz qabul qiling.
 </footer>
 
@@ -193,12 +195,6 @@ function formatLocalTime(utcH) {
   return `${pad(h)}:${pad(m)}`;
 }
 
-function utcHourToLocal(h){
-  let local = (h + tzOffset) % 24;
-  if (local < 0) local += 24;
-  return local;
-}
-
 function liquidityAt(utcHour){
   const london = utcHour >= 7 && utcHour < 16;
   const ny = utcHour >= 12 && utcHour < 21;
@@ -213,7 +209,6 @@ function liquidityAt(utcHour){
 function renderRuler(){
   const wrap = document.getElementById('rulerWrap');
   const base = document.getElementById('rulerBase');
-  const utcNow = new Date().getUTCHours();
 
   wrap.innerHTML = '';
   for (let utc = 0; utc < 24; utc++){
@@ -228,7 +223,6 @@ function renderRuler(){
       selectedHour = (selectedHour === utc) ? null : utc;
       renderRuler();
       updateTimeBadge();
-      updateNowMarker();
     });
     wrap.appendChild(seg);
   }
@@ -253,40 +247,50 @@ function updateTimeBadge(){
     // Tanlanmagan holatda hozirgi vaqt davri
     const now = new Date();
     const utcH = now.getUTCHours();
-    // Hozirgi mintaqada qaysi soat ekanligini aniqlaymiz
     const localNow = (utcH + tzOffset + 24) % 24;
-    const floorHour = Math.floor(localNow); // hozirgi soat (0-23)
-    
-    // Qaytarish: bu soat UTC bo'yicha qaysi vaqtga to'g'ri keladi?
+    const floorHour = Math.floor(localNow);
     const utcEquiv = (floorHour - tzOffset + 24) % 24;
     
     const start = formatLocalTime(utcEquiv);
     const end = formatLocalTime(utcEquiv + 1);
     badge.textContent = `${start} - ${end}`;
-    badge.className = 'text-sm font-mono font-semibold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-3 py-1 rounded-lg border border-gray-200 dark:border-gray-600';
+    badge.className = 'text-sm font-mono font-semibold bg-gray-700 text-gray-300 px-3 py-1 rounded-lg border border-gray-600 transition-colors hover:bg-gray-600 focus:outline-none cursor-default';
   } else {
     // Tanlangan holatda tanlangan vaqt
     const start = formatLocalTime(selectedHour);
     const end = formatLocalTime(selectedHour + 1);
     badge.textContent = `${start} - ${end}`;
-    badge.className = 'text-sm font-mono font-semibold bg-brand-500 text-white px-3 py-1 rounded-lg border border-brand-500';
+    badge.className = 'text-sm font-mono font-semibold bg-brand-500 text-white px-3 py-1 rounded-lg border border-brand-500 transition-colors hover:bg-brand-600 focus:outline-none cursor-pointer';
   }
 }
 
+// Vaqt katakchasini bosganda tanlovni bekor qilish
+document.getElementById('timeBadge').addEventListener('click', () => {
+  if (selectedHour !== null) {
+    selectedHour = null;
+    renderRuler();
+    updateTimeBadge();
+  }
+});
+
 // ================== RENDER: HOZIRGI VAQT BELGISI ==================
-function updateNowMarker(){
-  const marker = document.getElementById('nowMarker');
+function updateNowLine(){
+  const line = document.getElementById('nowLine');
   const now = new Date();
   
-  // Hozirgi soat va daqiqa (UTC da)
   const utcHours = now.getUTCHours();
   const utcMinutes = now.getUTCMinutes();
+  const utcSeconds = now.getUTCSeconds();
   
-  // 24 soatlik foizga o'girish (0 dan 100 gacha)
-  const totalHours = utcHours + utcMinutes / 60;
+  // Hozirgi soatning umumiy foizi (0 dan 100 gacha)
+  const totalHours = utcHours + utcMinutes / 60 + utcSeconds / 3600;
   const percentage = (totalHours / 24) * 100;
   
-  marker.style.left = `${percentage}%`;
+  // Chiziqchaning kengligi: 1 soat = 100/24 foiz
+  const widthPercentage = 100 / 24;
+  
+  line.style.left = `${percentage}%`;
+  line.style.width = `${widthPercentage}%`;
 }
 
 // ================== INSTRUMENTLAR ==================
@@ -294,17 +298,17 @@ function renderInstruments(){
   const filterEl = document.getElementById('instrumentFilter');
   const types = ['Hammasi', ...new Set(INSTRUMENTS.map(i => i.type))];
   filterEl.innerHTML = types.map((t, i) =>
-    `<button class="inst-btn text-sm px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 ${i===0?'bg-brand-500 text-white border-brand-500':''}" data-type="${t}">${t}</button>`
+    `<button class="inst-btn text-sm px-3 py-1.5 rounded-lg border border-gray-600 text-gray-300 ${i===0?'bg-brand-500 text-white border-brand-500':''}" data-type="${t}">${t}</button>`
   ).join('');
 
   document.querySelectorAll('.inst-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.inst-btn').forEach(b => {
         b.classList.remove('bg-brand-500','text-white','border-brand-500');
-        b.classList.add('border-gray-200','dark:border-gray-600');
+        b.classList.add('border-gray-600','text-gray-300');
       });
       btn.classList.add('bg-brand-500','text-white','border-brand-500');
-      btn.classList.remove('border-gray-200','dark:border-gray-600');
+      btn.classList.remove('border-gray-600','text-gray-300');
       renderInstrumentList(btn.dataset.type);
     });
   });
@@ -318,17 +322,17 @@ function renderInstrumentList(type){
   list.innerHTML = items.map(i => {
     let timeStr = `${formatLocalTime(i.utcStart)} – ${formatLocalTime(i.utcEnd)}`;
     if (i.utcStart2 !== undefined) {
-      timeStr += `<br><span class="text-xs text-gray-400 dark:text-gray-500">va</span> ${formatLocalTime(i.utcStart2)} – ${formatLocalTime(i.utcEnd2)}`;
+      timeStr += `<br><span class="text-xs text-gray-500">va</span> ${formatLocalTime(i.utcStart2)} – ${formatLocalTime(i.utcEnd2)}`;
     }
 
     return `
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-gray-50 dark:bg-gray-700/40 border border-gray-100 dark:border-gray-700">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-gray-700/50 border border-gray-700">
         <div>
-          <p class="font-bold text-base">${i.pair}</p>
-          <p class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">${i.name}</p>
+          <p class="font-bold text-base text-white">${i.pair}</p>
+          <p class="text-xs text-gray-400 uppercase tracking-wide">${i.name}</p>
         </div>
         <div class="text-left sm:text-right">
-          <div class="inline-flex items-center gap-2 text-sm font-mono font-bold text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-800 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600">
+          <div class="inline-flex items-center gap-2 text-sm font-mono font-bold text-gray-200 bg-gray-800 px-3 py-1.5 rounded-lg border border-gray-600">
             <span class="text-gray-400">⏱</span>
             <span class="text-center">${timeStr}</span>
           </div>
@@ -345,13 +349,12 @@ document.getElementById('tzSelect').addEventListener('change', (e) => {
   selectedHour = null;
   renderRuler();
   updateTimeBadge();
-  updateNowMarker();
+  updateNowLine();
   renderInstrumentList(document.querySelector('.inst-btn.bg-brand-500')?.dataset.type || 'Hammasi');
 });
 
 // ================== INIT ==================
 (function init(){
-  // Tema doim light mode qilib qo'yildi (yoki brauzer sozlamasiga qoldiriladi)
   const savedTz = localStorage.getItem('tzOffset');
   if (savedTz !== null) {
     tzOffset = parseFloat(savedTz);
@@ -361,12 +364,18 @@ document.getElementById('tzSelect').addEventListener('change', (e) => {
   renderInstruments();
   renderRuler();
   updateTimeBadge();
-  updateNowMarker();
+  updateNowLine();
 
-  // Har daqiqada vaqt belgisini va katakchani yangilash
+  // Har sekundda chiziqchani harakatlantirish (silliqroq)
   setInterval(() => {
-    updateTimeBadge();
-    updateNowMarker();
+    updateNowLine();
+  }, 1000);
+
+  // Har daqiqada vaqt katakchasini yangilash (soat o'zgarganda)
+  setInterval(() => {
+    if (selectedHour === null) {
+      updateTimeBadge();
+    }
   }, 60000);
 })();
 </script>
