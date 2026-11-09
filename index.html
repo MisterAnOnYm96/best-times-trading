@@ -82,18 +82,43 @@
   .liq-medium  { background: #facc15; color:#3f3f46; }
   .liq-low     { background: #cbd5e1; color:#64748b; }
   .dark .liq-low { background: #475569; color:#cbd5e1; }
+
+  /* ===== BOTTOM SHEET ANIMATSIYASI ===== */
+  .sheet-overlay {
+    transition: opacity 0.3s ease-in-out;
+  }
+  .sheet-content {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
 </style>
 </head>
-<body class="bg-gray-900 text-gray-100 transition-colors">
+<body class="bg-gray-900 text-gray-100 transition-colors overflow-hidden">
 
 <!-- HEADER -->
 <header class="bg-gray-800 shadow-sm sticky top-0 z-30">
   <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
     <h1 class="font-bold text-lg">📊 Trading Times</h1>
+    
+    <!-- O'ng burchakdagi tugmalar -->
+    <div class="flex items-center gap-1">
+      <!-- Filtr tugmasi -->
+      <button id="filterBtn" class="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-gray-700 transition-colors" title="Filtr">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+        </svg>
+      </button>
+      
+      <!-- 3 ta nuqta menyusi -->
+      <button id="menuBtn" class="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-gray-700 transition-colors" title="Menyu">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+        </svg>
+      </button>
+    </div>
   </div>
 </header>
 
-<main class="max-w-6xl mx-auto px-4 py-6 space-y-8">
+<main class="max-w-6xl mx-auto px-4 py-6 space-y-8 overflow-y-auto h-[calc(100vh-60px)]">
 
   <!-- KUNLIK TIMELINE RULER -->
   <section class="bg-gray-800 rounded-2xl p-4 shadow-sm text-gray-100">
@@ -116,7 +141,6 @@
   <!-- JUFTLIKLAR BO'YICHA -->
   <section class="bg-gray-800 rounded-2xl p-4 shadow-sm">
     <h3 class="font-bold mb-3">Instrument bo'yicha eng yaxshi vaqtlar</h3>
-    <div class="flex flex-wrap gap-2 mb-4" id="instrumentFilter"></div>
     <div id="instrumentList" class="space-y-3"></div>
   </section>
 
@@ -125,6 +149,31 @@
 <footer class="text-center text-xs text-gray-500 py-6">
   Ma'lumotlar taxminiy. Trading qarorlaringizni o'zingiz qabul qiling.
 </footer>
+
+<!-- ===== BOTTOM SHEET (FILTR OYNASI) ===== -->
+<div id="filterSheet" class="fixed inset-0 z-50 pointer-events-none">
+  <!-- Qoraytirilgan fon (Overlay) -->
+  <div id="sheetOverlay" class="absolute inset-0 bg-black/60 opacity-0 sheet-overlay pointer-events-none"></div>
+  
+  <!-- Yarim oyna (Content) -->
+  <div id="sheetContent" class="absolute bottom-0 left-0 right-0 bg-gray-800 rounded-t-3xl p-5 transform translate-y-full sheet-content pointer-events-auto shadow-2xl border-t border-gray-700 max-h-[80vh] flex flex-col">
+    
+    <!-- Tutqich (drag handle) -->
+    <div class="w-12 h-1.5 bg-gray-600 rounded-full mx-auto mb-4 shrink-0"></div>
+    
+    <h3 class="text-lg font-bold mb-4 shrink-0">Instrumentlar guruhi</h3>
+    
+    <!-- Guruhlar ro'yxati -->
+    <div id="filterGroups" class="flex flex-col gap-2 overflow-y-auto mb-4 flex-1">
+      <!-- JS tomonidan to'ldiriladi -->
+    </div>
+    
+    <!-- Saqlash tugmasi -->
+    <button id="saveFilterBtn" class="w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 rounded-xl transition-colors shrink-0">
+      Saqlash
+    </button>
+  </div>
+</div>
 
 <script>
 // ================== MA'LUMOTLAR ==================
@@ -141,7 +190,8 @@ const INSTRUMENTS = [
 // ================== HOLAT ==================
 let tzOffset = -new Date().getTimezoneOffset() / 60; 
 let selectedHour = null;
-let expandedInstrument = null; // Qaysi instrument ochilganini saqlash
+let expandedInstrument = null; 
+let currentFilterType = 'Hammasi'; // Hozirgi filtr
 
 // ================== YORDAMCHI ==================
 function pad(n){ return String(Math.floor(n)).padStart(2,'0'); }
@@ -179,10 +229,62 @@ function liquidityAt(utcHour){
   return 'low';
 }
 
+// ================== BOTTOM SHEET MANTIG'I ==================
+const filterSheet = document.getElementById('filterSheet');
+const sheetOverlay = document.getElementById('sheetOverlay');
+const sheetContent = document.getElementById('sheetContent');
+const filterBtn = document.getElementById('filterBtn');
+const saveFilterBtn = document.getElementById('saveFilterBtn');
+const filterGroups = document.getElementById('filterGroups');
+
+let tempFilterType = currentFilterType;
+
+function openSheet() {
+  // Guruhlarni to'ldirish
+  const types = ['Hammasi', ...new Set(INSTRUMENTS.map(i => i.type))];
+  tempFilterType = currentFilterType;
+  
+  filterGroups.innerHTML = types.map(t => `
+    <label class="flex items-center justify-between p-3 bg-gray-700/50 rounded-xl cursor-pointer hover:bg-gray-700 transition-colors border border-gray-700">
+      <span class="font-medium">${t === 'Hammasi' ? 'Barchasi (Hammasi)' : t}</span>
+      <input type="radio" name="instGroup" value="${t}" class="w-5 h-5 text-brand-500 bg-gray-800 border-gray-600 focus:ring-brand-500" ${t === tempFilterType ? 'checked' : ''}>
+    </label>
+  `).join('');
+
+  // Radio o'zgarganda tempFilterType ni yangilash
+  document.querySelectorAll('input[name="instGroup"]').forEach(radio => {
+    radio.addEventListener('change', (e) => {
+      tempFilterType = e.target.value;
+    });
+  });
+
+  // Oynani ko'rsatish
+  filterSheet.classList.remove('pointer-events-none');
+  sheetOverlay.classList.remove('opacity-0', 'pointer-events-none');
+  sheetContent.classList.remove('translate-y-full');
+}
+
+function closeSheet() {
+  sheetOverlay.classList.add('opacity-0', 'pointer-events-none');
+  sheetContent.classList.add('translate-y-full');
+  
+  setTimeout(() => {
+    filterSheet.classList.add('pointer-events-none');
+  }, 300);
+}
+
+filterBtn.addEventListener('click', openSheet);
+sheetOverlay.addEventListener('click', closeSheet);
+
+saveFilterBtn.addEventListener('click', () => {
+  currentFilterType = tempFilterType;
+  renderInstrumentList(); // Ro'yxatni yangilash
+  closeSheet();
+});
+
 // ================== RENDER: RULER ==================
 function renderRuler(){
   const wrap = document.getElementById('rulerWrap');
-
   wrap.innerHTML = '';
   for (let utc = 0; utc < 24; utc++){
     const liq = liquidityAt(utc);
@@ -192,7 +294,6 @@ function renderRuler(){
     if (selectedHour !== null && utc === selectedHour) seg.classList.add('active');
     seg.dataset.utc = utc;
     seg.title = formatTimeInterval(utc);
-    
     wrap.appendChild(seg);
   }
   
@@ -207,7 +308,6 @@ function updateTimeBadge(){
   if (selectedHour === null) {
     const now = new Date();
     const utcH = now.getUTCHours();
-    
     badge.textContent = formatTimeInterval(utcH);
     badge.className = 'text-sm font-mono font-semibold bg-gray-700 text-gray-300 px-3 py-1 rounded-lg border border-gray-600 transition-colors hover:bg-gray-600 focus:outline-none cursor-default';
   } else {
@@ -239,10 +339,8 @@ function updateNowLine(){
   if (currentSeg) {
     const segRect = currentSeg.getBoundingClientRect();
     const baseRect = baseContainer.getBoundingClientRect();
-    
     const leftOffset = segRect.left - baseRect.left;
     const width = segRect.width;
-    
     line.style.left = `${leftOffset}px`;
     line.style.width = `${width}px`;
   }
@@ -309,44 +407,21 @@ rulerWrap.addEventListener('touchmove', onDrag, { passive: false });
 window.addEventListener('touchend', endDrag);
 
 // ================== INSTRUMENTLAR ==================
-function renderInstruments(){
-  const filterEl = document.getElementById('instrumentFilter');
-  const types = ['Hammasi', ...new Set(INSTRUMENTS.map(i => i.type))];
-  filterEl.innerHTML = types.map((t, i) =>
-    `<button class="inst-btn text-sm px-3 py-1.5 rounded-lg border border-gray-600 text-gray-300 ${i===0?'bg-brand-500 text-white border-brand-500':''}" data-type="${t}">${t}</button>`
-  ).join('');
-
-  document.querySelectorAll('.inst-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.inst-btn').forEach(b => {
-        b.classList.remove('bg-brand-500','text-white','border-brand-500');
-        b.classList.add('border-gray-600','text-gray-300');
-      });
-      btn.classList.add('bg-brand-500','text-white','border-brand-500');
-      btn.classList.remove('border-gray-600','text-gray-300');
-      renderInstrumentList(btn.dataset.type);
-    });
-  });
-  renderInstrumentList('Hammasi');
-}
-
-function renderInstrumentList(type){
+function renderInstrumentList(){
   const list = document.getElementById('instrumentList');
-  const items = type === 'Hammasi' ? INSTRUMENTS : INSTRUMENTS.filter(i => i.type === type);
+  // Filtrga qarab instrumentlarni tanlaymiz
+  const items = currentFilterType === 'Hammasi' ? INSTRUMENTS : INSTRUMENTS.filter(i => i.type === currentFilterType);
   
   list.innerHTML = items.map((i, index) => {
-    // Ikki qator uchun HTML shakllantirish
     let timeStr = `<div>${formatTimeInterval(i.utcStart)}</div>`;
     if (i.utcStart2 !== undefined) {
-      timeStr += `<div>${formatTimeInterval(i.utcStart2)}</div>`; // "va" olib tashlandi, faqat yangi qator
+      timeStr += `<div>${formatTimeInterval(i.utcStart2)}</div>`;
     }
 
-    // Instrument ochiqmi yoki yo'qmi tekshirish
     const isExpanded = expandedInstrument === i.pair;
 
     return `
       <div class="bg-gray-700/50 border border-gray-700 rounded-xl overflow-hidden transition-all duration-300">
-        <!-- Bosh qism (Faqat qisqa nom va vaqt) -->
         <div class="inst-header flex flex-row items-center justify-between gap-3 p-4 cursor-pointer hover:bg-gray-700/80 transition-colors" data-pair="${i.pair}">
           <div class="min-w-0 flex-1">
             <p class="font-bold text-base text-white">${i.pair}</p>
@@ -358,7 +433,6 @@ function renderInstrumentList(type){
           </div>
         </div>
 
-        <!-- Ochiladigan qism (To'liq nom) -->
         <div class="inst-body px-4 overflow-hidden transition-all duration-300 ${isExpanded ? 'max-h-20 pb-4 opacity-100' : 'max-h-0 opacity-0'}">
           <p class="text-sm text-gray-400 uppercase tracking-wide">${i.name}</p>
         </div>
@@ -366,15 +440,11 @@ function renderInstrumentList(type){
     `;
   }).join('');
 
-  // Hodisalarni (Event) ulash
   document.querySelectorAll('.inst-header').forEach(header => {
     header.addEventListener('click', () => {
       const pair = header.dataset.pair;
-      // Agar o'sha bosilgan bo'lsa yopamiz, boshqasi bo'lsa o'shanga o'tamiz
       expandedInstrument = (expandedInstrument === pair) ? null : pair;
-      // Ro'yxatni qayta chizamiz
-      const activeType = document.querySelector('.inst-btn.bg-brand-500')?.dataset.type || 'Hammasi';
-      renderInstrumentList(activeType);
+      renderInstrumentList();
     });
   });
 }
@@ -383,7 +453,7 @@ function renderInstrumentList(type){
 (function init(){
   tzOffset = -new Date().getTimezoneOffset() / 60;
 
-  renderInstruments();
+  renderInstrumentList();
   renderRuler();
   updateTimeBadge();
   
