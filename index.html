@@ -14,6 +14,20 @@
   }
 </script>
 <style>
+  /* Raqamli inputlardagi strelkalarni yashirish */
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+  input[type="number"]:focus {
+    outline: none;
+  }
+
   /* ===== TIMELINE RULER ===== */
   .ruler-wrap { 
     display: flex; 
@@ -168,7 +182,6 @@
 </div>
 
 <script>
-// FAQAT KERAKLI MA'LUMOTLAR (name va boshqa ortiqcha narsalar olib tashlangan)
 let INSTRUMENTS = [
   { type: 'Forex', pair: 'EURUSD', times: ['01:00 - 01:59'] },
   { type: 'Forex', pair: 'USDCAD', times: ['12:00 - 12:59'] },
@@ -250,7 +263,7 @@ document.addEventListener('focusout', function(e) {
   }
 });
 
-// FILTR MANTIG'I
+// FILTR
 const filterSheet = document.getElementById('filterSheet');
 const sheetOverlay = document.getElementById('sheetOverlay');
 const sheetContent = document.getElementById('sheetContent');
@@ -304,7 +317,7 @@ saveFilterBtn.addEventListener('click', () => {
   closeSheet();
 });
 
-// MENYU (VAQTNI SOZLASH) MANTIG'I
+// MENYU (VAQTNI SOZLASH)
 const menuSheet = document.getElementById('menuSheet');
 const menuOverlay = document.getElementById('menuOverlay');
 const menuContent = document.getElementById('menuContent');
@@ -319,7 +332,19 @@ function openMenuSheet() {
   tempTimeRows = [];
   INSTRUMENTS.forEach(inst => {
     inst.times.forEach(time => {
-      tempTimeRows.push({ pair: inst.pair, type: inst.type, time: time });
+      // Vaqtni 4 ta qismga bo'lib olamiz: "HH:MM - HH:MM"
+      const match = time.match(/(\d{2}):(\d{2})\s*-\s*(\d{2}):(\d{2})/);
+      if (match) {
+        tempTimeRows.push({ 
+          pair: inst.pair, 
+          type: inst.type, 
+          startH: match[1], startM: match[2], 
+          endH: match[3], endM: match[4] 
+        });
+      } else {
+        // Agar format xato bo'lsa, bo'sh qo'shamiz
+        tempTimeRows.push({ pair: inst.pair, type: inst.type, startH: '00', startM: '00', endH: '00', endM: '00' });
+      }
     });
   });
   renderTimeRows();
@@ -335,20 +360,41 @@ function closeMenuSheet() {
   setTimeout(() => menuSheet.classList.add('pointer-events-none'), 300);
 }
 
+// QATORLARNI CHIZISH: 4 TA INPUT VA STATIK BELGILAR
 function renderTimeRows() {
   const uniquePairs = [...new Set(INSTRUMENTS.map(i => i.pair))];
   
   timeRowsContainer.innerHTML = tempTimeRows.map((row, index) => {
     return `
       <div class="flex items-center gap-1 w-full">
-        <div class="flex-1 flex items-center bg-gray-700/50 border border-gray-600 rounded-lg overflow-hidden focus-within:border-brand-500 transition-colors">
-          <select class="w-32 flex-shrink-0 bg-transparent text-gray-200 text-base py-1.5 pl-2 pr-1 outline-none" data-index="${index}" data-field="pair">
-            ${uniquePairs.map(p => `<option value="${p}" class="bg-gray-800" ${row.pair === p ? 'selected' : ''}>${p}</option>`).join('')}
-          </select>
-          <input type="text" class="flex-1 w-full bg-transparent text-gray-200 text-base py-1.5 px-2 outline-none font-mono" placeholder="06:00 - 08:00" value="${row.time}" data-index="${index}" data-field="time">
+        
+        <!-- Instrument tanlash -->
+        <select class="w-24 flex-shrink-0 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 text-sm py-1.5 px-1 outline-none" data-index="${index}" data-field="pair">
+          ${uniquePairs.map(p => `<option value="${p}" class="bg-gray-800" ${row.pair === p ? 'selected' : ''}>${p}</option>`).join('')}
+        </select>
+
+        <!-- Vaqt kiritish qismi (4 ta kichik input va statik belgilar) -->
+        <div class="flex-1 flex items-center justify-center bg-gray-700/50 border border-gray-600 rounded-lg px-1 py-1 focus-within:border-brand-500 transition-colors">
+          
+          <!-- Start Hour -->
+          <input type="number" min="0" max="23" placeholder="00" value="${row.startH}" class="w-7 bg-transparent text-center text-gray-200 text-sm font-mono outline-none" data-index="${index}" data-field="startH" oninput="if(this.value.length>2) this.value=this.value.slice(0,2); if(this.value>23) this.value='23'; if(this.value<0) this.value='00';">
+          <span class="text-gray-400 text-sm font-mono mx-0.5">:</span>
+          <!-- Start Minute -->
+          <input type="number" min="0" max="59" placeholder="00" value="${row.startM}" class="w-7 bg-transparent text-center text-gray-200 text-sm font-mono outline-none" data-index="${index}" data-field="startM" oninput="if(this.value.length>2) this.value=this.value.slice(0,2); if(this.value>59) this.value='59'; if(this.value<0) this.value='00';">
+          
+          <span class="text-gray-500 text-sm font-mono mx-1">-</span>
+
+          <!-- End Hour -->
+          <input type="number" min="0" max="23" placeholder="00" value="${row.endH}" class="w-7 bg-transparent text-center text-gray-200 text-sm font-mono outline-none" data-index="${index}" data-field="endH" oninput="if(this.value.length>2) this.value=this.value.slice(0,2); if(this.value>23) this.value='23'; if(this.value<0) this.value='00';">
+          <span class="text-gray-400 text-sm font-mono mx-0.5">:</span>
+          <!-- End Minute -->
+          <input type="number" min="0" max="59" placeholder="00" value="${row.endM}" class="w-7 bg-transparent text-center text-gray-200 text-sm font-mono outline-none" data-index="${index}" data-field="endM" oninput="if(this.value.length>2) this.value=this.value.slice(0,2); if(this.value>59) this.value='59'; if(this.value<0) this.value='00';">
+          
         </div>
+        
+        <!-- O'chirish -->
         <button class="text-red-400 hover:text-red-300 p-1 flex-shrink-0 transition-colors" onclick="removeTimeRow(${index})">
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
           </svg>
         </button>
@@ -356,20 +402,21 @@ function renderTimeRows() {
     `;
   }).join('');
 
+  // Inputlar o'zgarganda ma'lumotni saqlash
   timeRowsContainer.querySelectorAll('select, input').forEach(el => {
     el.addEventListener('change', (e) => {
       const index = e.target.dataset.index;
       const field = e.target.dataset.field;
-      const val = e.target.value;
+      let val = e.target.value;
       
       if (field === 'pair') {
         const inst = INSTRUMENTS.find(i => i.pair === val);
         tempTimeRows[index].pair = val;
-        if (inst) {
-          tempTimeRows[index].type = inst.type;
-        }
+        if (inst) tempTimeRows[index].type = inst.type;
       } else {
-        tempTimeRows[index].time = val;
+        // Doim 2 xonali qilib saqlash (masalan, 5 -> 05)
+        if (val.length === 1) val = '0' + val;
+        tempTimeRows[index][field] = val;
       }
     });
   });
@@ -392,7 +439,7 @@ addTimeBtn.addEventListener('click', () => {
     tempTimeRows.push({ 
       pair: defaultPair, 
       type: inst ? inst.type : 'Forex', 
-      time: '' 
+      startH: '00', startM: '00', endH: '00', endM: '00'
     });
     renderTimeRows();
   }
@@ -406,11 +453,16 @@ saveMenuBtn.addEventListener('click', () => {
   const grouped = {};
   
   tempTimeRows.forEach(row => {
-    if (!row.time.trim()) return;
+    // Bo'sh yoki 00:00 - 00:00 bo'lsa tashlab ketamiz (ixtiyoriy)
+    if (row.startH === '00' && row.startM === '00' && row.endH === '00' && row.endM === '00') return;
+    
+    // Vaqtni yagona stringga yig'amiz: "HH:MM - HH:MM"
+    const timeString = `${row.startH}:${row.startM} - ${row.endH}:${row.endM}`;
+
     if (!grouped[row.pair]) {
       grouped[row.pair] = { type: row.type, pair: row.pair, times: [] };
     }
-    grouped[row.pair].times.push(row.time);
+    grouped[row.pair].times.push(timeString);
   });
 
   Object.values(grouped).forEach(group => {
@@ -542,7 +594,6 @@ rulerWrap.addEventListener('touchstart', startDrag, { passive: false });
 rulerWrap.addEventListener('touchmove', onDrag, { passive: false });
 window.addEventListener('touchend', endDrag);
 
-// ASOSIY EKRAN (Faqat indikator, nom va vaqt)
 function renderInstrumentList(){
   const list = document.getElementById('instrumentList');
   const items = INSTRUMENTS.filter(i => currentFilterTypes.includes(i.type));
