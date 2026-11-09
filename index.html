@@ -2,7 +2,6 @@
 <html lang="uz" class="dark">
 <head>
 <meta charset="UTF-8">
-<!-- Mobil brauzerlarda masshtab o'zgarishini bloklash -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Eng yaxshi trading vaqtlari</title>
 <script src="https://cdn.tailwindcss.com"></script>
@@ -128,13 +127,10 @@
     </div>
   </section>
 
-  <!-- 1. "Instrument bo'yicha eng yaxshi vaqtlar" sarlavhasi olib tashlandi -->
   <section class="bg-gray-800 rounded-2xl p-4 shadow-sm">
     <div id="instrumentList" class="space-y-3"></div>
   </section>
 </main>
-
-<!-- 2. En quyidagi matn (footer) olib tashlandi -->
 
 <!-- ===== FILTR OYNASI ===== -->
 <div id="filterSheet" class="fixed inset-0 z-50 pointer-events-none">
@@ -211,18 +207,15 @@ function liquidityAt(utcHour){
   return 'low';
 }
 
-// ================= EKRAN MASSHTABI MUAMMOSINI YECHISH =================
-// Inputdan chiqilganda (blur bo'lganda) brauzerni masshtabni tiklashga majbur qilamiz
+// ================= EKRAN MASSHTABI =================
 document.addEventListener('focusout', function(e) {
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') {
-    // Kichik kechikish bilan (klaviatura yopilishini kutish uchun)
     setTimeout(() => {
-      // Brauzerni "chalg'itish" uchun viewport meta tegini vaqtincha yangilaymiz
       const viewport = document.querySelector('meta[name="viewport"]');
       if (viewport) {
         viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
       }
-      window.scrollTo(0, window.scrollY); // Majburiy qayta chizish
+      window.scrollTo(0, window.scrollY);
     }, 150);
   }
 });
@@ -312,19 +305,29 @@ function closeMenuSheet() {
   setTimeout(() => menuSheet.classList.add('pointer-events-none'), 300);
 }
 
+// O'chirish tugmasi borderdan tashqarida va chiziqlar olib tashlangan
 function renderTimeRows() {
   const uniquePairs = [...new Set(INSTRUMENTS.map(i => i.pair))];
   
   timeRowsContainer.innerHTML = tempTimeRows.map((row, index) => {
     return `
-      <div class="flex items-center bg-gray-700/50 border border-gray-600 rounded-xl overflow-hidden focus-within:border-brand-500 transition-colors">
-        <select class="w-28 bg-transparent text-gray-200 text-base py-2 pl-3 pr-1 outline-none truncate appearance-none" data-index="${index}" data-field="pair">
-          ${uniquePairs.map(p => `<option value="${p}" class="bg-gray-800" ${row.pair === p ? 'selected' : ''}>${p}</option>`).join('')}
-        </select>
-        <div class="w-px h-6 bg-gray-600"></div>
-        <input type="text" class="flex-1 bg-transparent text-gray-200 text-base py-2 px-3 outline-none text-center font-mono" placeholder="06:00 - 08:00" value="${row.time}" data-index="${index}" data-field="time">
-        <button class="text-red-400 hover:text-red-300 p-2 mr-1 flex-shrink-0 transition-colors" onclick="removeTimeRow(${index})">
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+      <div class="flex items-center gap-2 w-full">
+        
+        <!-- Input/Select guruhi (faqat shu qismda border) -->
+        <div class="flex-1 flex items-center bg-gray-700/50 border border-gray-600 rounded-xl overflow-hidden focus-within:border-brand-500 transition-colors">
+          <select class="w-28 bg-transparent text-gray-200 text-base py-2 pl-3 pr-1 outline-none truncate appearance-none" data-index="${index}" data-field="pair">
+            ${uniquePairs.map(p => `<option value="${p}" class="bg-gray-800" ${row.pair === p ? 'selected' : ''}>${p}</option>`).join('')}
+          </select>
+          
+          <!-- O'rtadagi chiziq olib tashlandi -->
+          <input type="text" class="flex-1 bg-transparent text-gray-200 text-base py-2 px-3 outline-none text-center font-mono" placeholder="06:00 - 08:00" value="${row.time}" data-index="${index}" data-field="time">
+        </div>
+        
+        <!-- O'chirish tugmasi (borderdan tashqarida) -->
+        <button class="text-red-400 hover:text-red-300 p-2 flex-shrink-0 transition-colors" onclick="removeTimeRow(${index})">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
         </button>
       </div>
     `;
@@ -350,9 +353,13 @@ function renderTimeRows() {
   });
 }
 
+// O'chirishda tasdiqlash so'rash
 window.removeTimeRow = function(index) {
-  tempTimeRows.splice(index, 1);
-  renderTimeRows();
+  const confirmDelete = confirm("Ushbu vaqt oralig'ini o'chirishni tasdiqlaysizmi?");
+  if (confirmDelete) {
+    tempTimeRows.splice(index, 1);
+    renderTimeRows();
+  }
 }
 
 addTimeBtn.addEventListener('click', () => {
