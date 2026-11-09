@@ -113,6 +113,16 @@
     70% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
     100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
   }
+
+  /* Drag va Drop effektlari */
+  .drag-ghost {
+    opacity: 0.4;
+    background-color: #374151; /* gray-700 */
+    border: 1px dashed #60a5fa; /* blue-400 */
+  }
+  .sortable-item {
+    touch-action: pan-y; /* Sudrab o'tishda scroll bo'lishi uchun */
+  }
 </style>
 </head>
 <body class="bg-gray-900 text-gray-100 transition-colors">
@@ -123,11 +133,25 @@
     <h1 class="font-bold text-lg">📊 Trading Times</h1>
     
     <div class="flex items-center gap-1">
+      
+      <!-- TARTIBLASH TUGMASI (Yangi qo'shildi) -->
+      <button id="sortBtn" class="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-gray-700 transition-colors" title="Tartiblash">
+        <!-- Standart holat: Strelkalar -->
+        <svg id="sortIconDefault" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+        </svg>
+        <!-- Bosilganda: Galochka -->
+        <svg id="sortIconCheck" class="w-5 h-5 text-green-400 hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+        </svg>
+      </button>
+
       <button id="filterBtn" class="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-gray-700 transition-colors" title="Filtr">
         <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
         </svg>
       </button>
+      
       <button id="menuBtn" class="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-gray-700 transition-colors" title="Menyu">
         <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
@@ -152,6 +176,7 @@
   </section>
 
   <section class="space-y-1">
+    <!-- id="sortableList" qo'shildi -->
     <div id="instrumentList" class="space-y-1"></div>
   </section>
 </main>
@@ -181,6 +206,9 @@
   </div>
 </div>
 
+<!-- SortableJS kutubxonasi (Drag & Drop uchun) -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+
 <script>
 let INSTRUMENTS = [
   { type: 'Forex', pair: 'EURUSD', times: ['01:00 - 01:59'] },
@@ -195,6 +223,8 @@ let INSTRUMENTS = [
 let tzOffset = -new Date().getTimezoneOffset() / 60; 
 let selectedHour = null;
 let currentFilterTypes = ['Forex', 'Metall', 'Indeks']; 
+let isSorting = false; // Tartiblash rejimi yoqilganmi?
+let sortableInstance = null; // SortableJS obyekti
 
 function pad(n){ return String(Math.floor(n)).padStart(2,'0'); }
 
@@ -262,6 +292,67 @@ document.addEventListener('focusout', function(e) {
     }, 150);
   }
 });
+
+// ================= SORTING (TARTIBLASH) MANTIG'I =================
+const sortBtn = document.getElementById('sortBtn');
+const sortIconDefault = document.getElementById('sortIconDefault');
+const sortIconCheck = document.getElementById('sortIconCheck');
+
+sortBtn.addEventListener('click', () => {
+  isSorting = !isSorting;
+  
+  if (isSorting) {
+    // Tartiblash rejimi YOQILDI
+    sortIconDefault.classList.add('hidden');
+    sortIconCheck.classList.remove('hidden');
+    sortBtn.classList.add('bg-gray-700'); // Tugma fondini ajratish
+    renderInstrumentList(); // Tutqichlarni chiqarish uchun qayta chizamiz
+    
+    // SortableJS ni ishga tushirish
+    const listEl = document.getElementById('instrumentList');
+    sortableInstance = new Sortable(listEl, {
+      animation: 150,
+      handle: '.drag-handle', // Faqat tutqichdan ushlab sudrash mumkin
+      ghostClass: 'drag-ghost',
+      onEnd: function (evt) {
+        // HTML elementlarning yangi tartibini o'qib olamiz
+        const newOrderPairs = [];
+        const items = listEl.querySelectorAll('.sortable-item');
+        items.forEach(item => {
+          newOrderPairs.push(item.dataset.pair);
+        });
+
+        // INSTRUMENTS massivini yangi tartibga moslaymiz
+        let newInstruments = [];
+        newOrderPairs.forEach(pair => {
+          const inst = INSTRUMENTS.find(i => i.pair === pair);
+          if (inst) newInstruments.push(inst);
+        });
+        
+        // Filterdan yashirilgan (ko'rinmayotgan) instrumentlarni ham qo'shib qo'yamiz (oxiriga)
+        INSTRUMENTS.forEach(inst => {
+          if (!newOrderPairs.includes(inst.pair)) {
+            newInstruments.push(inst);
+          }
+        });
+
+        INSTRUMENTS = newInstruments;
+      }
+    });
+  } else {
+    // Tartiblash rejimi O'CHIRILDI (Saqlash)
+    sortIconCheck.classList.add('hidden');
+    sortIconDefault.classList.remove('hidden');
+    sortBtn.classList.remove('bg-gray-700');
+    
+    if (sortableInstance) {
+      sortableInstance.destroy();
+      sortableInstance = null;
+    }
+    renderInstrumentList(); // Tutqichlarni olib tashlash uchun qayta chizamiz
+  }
+});
+// =================================================================
 
 // FILTR
 const filterSheet = document.getElementById('filterSheet');
@@ -358,7 +449,6 @@ function closeMenuSheet() {
   setTimeout(() => menuSheet.classList.add('pointer-events-none'), 300);
 }
 
-// QATORLARNI CHIZISH: AVTOMATIK O'TISH MANTIG'I BILAN
 function renderTimeRows() {
   const uniquePairs = [...new Set(INSTRUMENTS.map(i => i.pair))];
   
@@ -366,22 +456,18 @@ function renderTimeRows() {
     return `
       <div class="flex items-center gap-1 w-full">
         
-        <!-- Instrument tanlash -->
         <select class="w-24 flex-shrink-0 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 text-sm py-1.5 px-1 outline-none" data-index="${index}" data-field="pair">
           ${uniquePairs.map(p => `<option value="${p}" class="bg-gray-800" ${row.pair === p ? 'selected' : ''}>${p}</option>`).join('')}
         </select>
 
-        <!-- Vaqt kiritish qismi -->
         <div class="flex-1 flex items-center justify-center bg-gray-700/50 border border-gray-600 rounded-lg px-1 py-1 focus-within:border-brand-500 transition-colors">
           
-          <!-- Start Hour (id: startH-0, startH-1...) -->
           <input type="number" id="startH-${index}" min="0" max="23" placeholder="00" value="${row.startH}" 
                  class="w-7 bg-transparent text-center text-gray-200 text-sm font-mono outline-none" 
                  data-index="${index}" data-field="startH" 
                  oninput="handleTimeInput(this, 'startM-${index}')">
           <span class="text-gray-400 text-sm font-mono mx-0.5">:</span>
           
-          <!-- Start Minute -->
           <input type="number" id="startM-${index}" min="0" max="59" placeholder="00" value="${row.startM}" 
                  class="w-7 bg-transparent text-center text-gray-200 text-sm font-mono outline-none" 
                  data-index="${index}" data-field="startM" 
@@ -389,14 +475,12 @@ function renderTimeRows() {
           
           <span class="text-gray-500 text-sm font-mono mx-1">-</span>
 
-          <!-- End Hour -->
           <input type="number" id="endH-${index}" min="0" max="23" placeholder="00" value="${row.endH}" 
                  class="w-7 bg-transparent text-center text-gray-200 text-sm font-mono outline-none" 
                  data-index="${index}" data-field="endH" 
                  oninput="handleTimeInput(this, 'endM-${index}')">
           <span class="text-gray-400 text-sm font-mono mx-0.5">:</span>
           
-          <!-- End Minute -->
           <input type="number" id="endM-${index}" min="0" max="59" placeholder="00" value="${row.endM}" 
                  class="w-7 bg-transparent text-center text-gray-200 text-sm font-mono outline-none" 
                  data-index="${index}" data-field="endM" 
@@ -404,7 +488,6 @@ function renderTimeRows() {
           
         </div>
         
-        <!-- O'chirish -->
         <button class="text-red-400 hover:text-red-300 p-1 flex-shrink-0 transition-colors" onclick="removeTimeRow(${index})">
           <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -414,7 +497,6 @@ function renderTimeRows() {
     `;
   }).join('');
 
-  // Ma'lumotlarni saqlash
   timeRowsContainer.querySelectorAll('select, input').forEach(el => {
     el.addEventListener('change', (e) => {
       const index = e.target.dataset.index;
@@ -433,32 +515,27 @@ function renderTimeRows() {
   });
 }
 
-// AVTOMATIK O'TISH VA TO'G'RILASH FUNKSIYASI
 window.handleTimeInput = function(el, nextId) {
   let val = el.value;
   const index = el.dataset.index;
   const field = el.dataset.field;
 
-  // 2 tadan ko'p raqam kiritilmasin
   if (val.length > 2) {
     val = val.slice(0, 2);
     el.value = val;
   }
 
-  // Chegaradan oshib ketsa to'g'rilash (soat 23, daqiqa 59)
   if (field.includes('H') && parseInt(val) > 23) { el.value = '23'; val = '23'; }
   if (field.includes('M') && parseInt(val) > 59) { el.value = '59'; val = '59'; }
 
-  // Agar 2 ta raqam yozilgan bo'lsa, keyingi katakka o'tish
   if (val.length === 2 && nextId) {
     const nextInput = document.getElementById(nextId);
     if (nextInput) {
       nextInput.focus();
-      nextInput.select(); // Keyingi katakdagi matnni belgilab qo'yish (oson o'chirish uchun)
+      nextInput.select();
     }
   }
 
-  // Ma'lumotni yangilash
   if (tempTimeRows[index]) {
     tempTimeRows[index][field] = val.padStart(2, '0');
   }
@@ -509,7 +586,24 @@ saveMenuBtn.addEventListener('click', () => {
     newInstruments.push(group);
   });
 
-  INSTRUMENTS = newInstruments;
+  // Mavjud tartibni saqlab qolish (yangi qo'shilganlarini oxiriga qo'shish)
+  const currentOrder = INSTRUMENTS.map(i => i.pair);
+  let finalInstruments = [];
+  
+  // 1. Avval eski tartibdagilarni qo'shamiz (agar ular yangi ro'yxatda bo'lsa)
+  currentOrder.forEach(pair => {
+    const found = newInstruments.find(i => i.pair === pair);
+    if (found) finalInstruments.push(found);
+  });
+  
+  // 2. Keyin yangi qo'shilganlarni qo'shamiz
+  newInstruments.forEach(inst => {
+    if (!finalInstruments.find(i => i.pair === inst.pair)) {
+      finalInstruments.push(inst);
+    }
+  });
+
+  INSTRUMENTS = finalInstruments;
   
   const existingTypes = [...new Set(INSTRUMENTS.map(i => i.type))];
   currentFilterTypes = currentFilterTypes.filter(t => existingTypes.includes(t));
@@ -594,107 +688,4 @@ function startDrag(e) {
   }
   
   isDragging = true;
-  const x = e.touches ? e.touches[0].clientX : e.clientX;
-  const hour = getHourFromX(x);
-  
-  if (hour !== null) {
-    if (selectedHour === hour) {
-      selectedHour = null; 
-    } else {
-      selectedHour = hour;
-    }
-    lastSelectedHour = hour;
-    renderRuler(); 
-    updateTimeBadge();
-    requestAnimationFrame(() => setTimeout(updateNowLine, 10));
-  }
-}
-
-function onDrag(e) {
-  if (!isDragging) return;
-  if (e.cancelable) e.preventDefault(); 
-  const x = e.touches ? e.touches[0].clientX : e.clientX;
-  const hour = getHourFromX(x);
-  if (hour !== null && hour !== lastSelectedHour) {
-    selectedHour = hour; 
-    lastSelectedHour = hour;
-    renderRuler(); 
-    updateTimeBadge();
-    requestAnimationFrame(() => setTimeout(updateNowLine, 10));
-  }
-}
-
-function endDrag() { isDragging = false; }
-
-rulerWrap.addEventListener('mousedown', startDrag);
-rulerWrap.addEventListener('mousemove', onDrag);
-window.addEventListener('mouseup', endDrag);
-rulerWrap.addEventListener('touchstart', startDrag, { passive: false });
-rulerWrap.addEventListener('touchmove', onDrag, { passive: false });
-window.addEventListener('touchend', endDrag);
-
-function renderInstrumentList(){
-  const list = document.getElementById('instrumentList');
-  const items = INSTRUMENTS.filter(i => currentFilterTypes.includes(i.type));
-  
-  if (items.length === 0) {
-    list.innerHTML = `<div class="text-center text-gray-500 py-4 text-sm">Tanlangan guruhda instrumentlar yo'q</div>`;
-    return;
-  }
-
-  const now = new Date();
-  let currentMinutes = ((now.getUTCHours() + tzOffset) * 60 + now.getUTCMinutes() + 1440) % 1440;
-
-  list.innerHTML = items.map((i) => {
-    let timeStr = i.times.map(t => `<div>${t}</div>`).join('');
-
-    let isActive = false;
-    if (i.times && i.times.length > 0) {
-      for (const time of i.times) {
-        if (isTimeInRange(time, currentMinutes)) {
-          isActive = true;
-          break;
-        }
-      }
-    }
-
-    const indicatorHtml = isActive 
-      ? `<span class="w-2.5 h-2.5 bg-green-500 rounded-full mr-2 flex-shrink-0 pulse-dot-active"></span>` 
-      : `<span class="w-2.5 h-2.5 bg-gray-500 rounded-full mr-2 flex-shrink-0"></span>`;
-
-    return `
-      <div class="bg-gray-700/50 border border-gray-700 rounded-xl">
-        <div class="flex flex-row items-center justify-between gap-2 px-3 py-2">
-          <div class="min-w-0 flex-1 flex items-center">
-            ${indicatorHtml}
-            <p class="font-bold text-base text-white truncate">${i.pair}</p>
-          </div>
-          <div class="flex-shrink-0">
-            <div class="flex flex-col text-sm font-mono font-bold text-gray-200 bg-gray-800 px-2 py-1 rounded-lg border border-gray-600">
-              ${timeStr}
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-  }).join('');
-}
-
-(function init(){
-  tzOffset = -new Date().getTimezoneOffset() / 60;
-  renderInstrumentList();
-  renderRuler();
-  updateTimeBadge();
-  setTimeout(updateNowLine, 100);
-  setInterval(() => updateNowLine(), 1000);
-  setInterval(() => {
-    if (selectedHour === null) {
-      updateTimeBadge();
-    }
-    renderInstrumentList();
-  }, 60000);
-  window.addEventListener('resize', updateNowLine);
-})();
-</script>
-</body>
-</html>
+  const x = e.touches ? e.touches[
