@@ -17,10 +17,10 @@
   /* ===== TIMELINE RULER ===== */
   .ruler-wrap { 
     display: flex; 
-    align-items: flex-end; /* Pastdan tekislanadi */
+    align-items: flex-end; 
     gap: 2px; 
-    height: 100px; /* Umumiy balandlik eng baland ustunga moslashadi */
-    padding: 8px 0 0 0; 
+    height: 60px; /* Umumiy balandlik kichraytirildi */
+    padding: 4px 0 0 0; 
     overflow: visible; 
     position: relative;
   }
@@ -28,10 +28,9 @@
   .ruler-seg {
     flex: 1 1 0; 
     min-width: 0; 
-    border-radius: 4px 4px 0 0; 
+    border-radius: 3px 3px 0 0; 
     position: relative;
     cursor: pointer; 
-    /* Faqat flex (eni) o'zgarishi animatsiya qilinadi, height emas */
     transition: flex .35s cubic-bezier(.4,0,.2,1), opacity .35s, filter .2s; 
     display: flex;
     flex-direction: column; 
@@ -41,18 +40,18 @@
   }
   .ruler-seg:hover { filter: brightness(1.08); }
 
-  /* Likvidlik darajasiga qarab balandliklar (pog'ona) */
-  .ruler-seg.liq-low     { height: 30px; }
-  .ruler-seg.liq-medium  { height: 50px; }
-  .ruler-seg.liq-high    { height: 70px; }
-  .ruler-seg.liq-overlap { height: 90px; }
+  /* Balandliklar kichraytirildi */
+  .ruler-seg.liq-low     { height: 15px; }
+  .ruler-seg.liq-medium  { height: 25px; }
+  .ruler-seg.liq-high    { height: 35px; }
+  .ruler-seg.liq-overlap { height: 45px; }
 
   /* Kattalashgan segment - faqat eni o'zgaradi */
   .ruler-seg.active {
     flex: 3 1 0; 
     z-index: 10; 
-    box-shadow: 0 4px 12px rgba(0,0,0,.25);
-    border-radius: 6px 6px 0 0; 
+    box-shadow: 0 2px 8px rgba(0,0,0,.2);
+    border-radius: 4px 4px 0 0; 
   }
   
   .ruler-wrap.has-active .ruler-seg:not(.active) { 
@@ -64,11 +63,11 @@
   .ruler-seg.now::after {
     content: ''; 
     position: absolute; 
-    bottom: -6px; 
+    bottom: -5px; 
     left: 50%; 
     transform: translateX(-50%);
-    width: 6px; 
-    height: 6px; 
+    width: 5px; 
+    height: 5px; 
     border-radius: 50%; 
     background: #3b82f6; 
     box-shadow: 0 0 0 2px rgba(59,130,246,.25);
@@ -84,15 +83,15 @@
   }
   .ruler-base .tick { 
     position: absolute; 
-    top: -4px; 
+    top: -3px; 
     width: 1px; 
-    height: 4px; 
+    height: 3px; 
     background: currentColor; 
     opacity: .5; 
   }
   .ruler-base .tick.major { 
-    height: 8px; 
-    top: -8px; 
+    height: 6px; 
+    top: -6px; 
     opacity: .8; 
   }
 
@@ -129,26 +128,19 @@
   <!-- KUNLIK TIMELINE RULER -->
   <section class="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm text-gray-800 dark:text-gray-100">
     
-    <!-- Sarlavha va Legend -->
-    <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
-      <h3 class="font-bold">Kunlik likvidlik shkalasi</h3>
+    <!-- Sarlavha va Vaqt katakchasi -->
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+      <h3 class="font-bold text-base">Likvidlik shkalasi</h3>
       
-      <div class="flex flex-wrap items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
-        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-gradient-to-b from-green-400 to-emerald-600"></span> Overlap</span>
-        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-green-500"></span> Yuqori</span>
-        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-yellow-400"></span> O'rta</span>
-        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-gray-300 dark:bg-gray-600"></span> Past</span>
+      <!-- Vaqt katakchasi -->
+      <div id="timeBadge" class="text-sm font-mono font-semibold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-3 py-1 rounded-lg border border-gray-200 dark:border-gray-600">
+        00:00 - 23:59
       </div>
     </div>
 
     <!-- Ruler -->
     <div id="rulerWrap" class="ruler-wrap"></div>
     <div class="ruler-base" id="rulerBase"></div>
-
-    <!-- Ma'lumot paneli -->
-    <div id="segInfo" class="mt-4 bg-gray-50 dark:bg-gray-700/40 rounded-xl px-4 py-2.5 text-gray-600 dark:text-gray-300 flex flex-col justify-center min-h-[56px]">
-      <!-- JS tomonidan to'ldiriladi -->
-    </div>
   </section>
 
   <!-- JUFTLIKLAR BO'YICHA -->
@@ -206,9 +198,6 @@ function liquidityAt(utcHour){
   if (tokyo) return 'medium';
   return 'low';
 }
-function liquidityLabel(liq){
-  return { overlap: 'Overlap', high: 'Yuqori', medium: "O'rta", low: 'Past' }[liq];
-}
 
 // ================== RENDER: RULER ==================
 function renderRuler(){
@@ -220,16 +209,15 @@ function renderRuler(){
   for (let utc = 0; utc < 24; utc++){
     const liq = liquidityAt(utc);
     const seg = document.createElement('div');
-    // Har bir daraja uchun klass biriktiriladi
     seg.className = `ruler-seg liq-${liq}` + (utc === utcNow ? ' now' : '');
     if (selectedHour !== null && utc === selectedHour) seg.classList.add('active');
     seg.dataset.utc = utc;
-    seg.title = `${formatLocalTime(utc)} — ${liquidityLabel(liq)}`;
+    seg.title = `${formatLocalTime(utc)} — ${formatLocalTime(utc+1)}`;
     
     seg.addEventListener('click', () => {
       selectedHour = (selectedHour === utc) ? null : utc;
       renderRuler();
-      renderSegInfo();
+      updateTimeBadge();
     });
     wrap.appendChild(seg);
   }
@@ -246,34 +234,18 @@ function renderRuler(){
   base.innerHTML = ticks;
 }
 
-// ================== RENDER: MA'LUMOT PANELI ==================
-function renderSegInfo(){
-  const info = document.getElementById('segInfo');
-  
-  if (selectedHour === null){
-    info.innerHTML = `
-      <div class="font-mono font-semibold text-sm text-gray-800 dark:text-gray-200">Vaqt tanlang</div>
-      <div class="font-mono font-semibold text-sm text-gray-500 dark:text-gray-400">Likvidlik: -</div>
-    `;
-    return;
+// ================== RENDER: VAQT KATAKCHASI ==================
+function updateTimeBadge(){
+  const badge = document.getElementById('timeBadge');
+  if (selectedHour === null) {
+    badge.textContent = '00:00 - 23:59';
+    badge.className = 'text-sm font-mono font-semibold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-3 py-1 rounded-lg border border-gray-200 dark:border-gray-600';
+  } else {
+    const start = formatLocalTime(selectedHour);
+    const end = formatLocalTime(selectedHour + 1);
+    badge.textContent = `${start} - ${end}`;
+    badge.className = 'text-sm font-mono font-semibold bg-brand-500 text-white px-3 py-1 rounded-lg border border-brand-500';
   }
-  
-  const liq = liquidityAt(selectedHour);
-  const colors = { 
-    overlap: 'text-emerald-600 dark:text-emerald-400', 
-    high: 'text-green-600 dark:text-green-400', 
-    medium: 'text-yellow-600 dark:text-yellow-400', 
-    low: 'text-gray-500 dark:text-gray-400' 
-  };
-  
-  info.innerHTML = `
-    <div class="font-mono font-semibold text-sm text-gray-800 dark:text-gray-200">
-      ${formatLocalTime(selectedHour)} – ${formatLocalTime(selectedHour+1)}
-    </div>
-    <div class="font-mono font-semibold text-sm ${colors[liq]}">
-      Likvidlik: ${liquidityLabel(liq)}
-    </div>
-  `;
 }
 
 // ================== INSTRUMENTLAR ==================
@@ -348,7 +320,7 @@ document.getElementById('tzSelect').addEventListener('change', (e) => {
   localStorage.setItem('tzOffset', tzOffset);
   selectedHour = null;
   renderRuler();
-  renderSegInfo();
+  updateTimeBadge();
   renderInstrumentList(document.querySelector('.inst-btn.bg-brand-500')?.dataset.type || 'Hammasi');
 });
 
@@ -362,7 +334,7 @@ document.getElementById('tzSelect').addEventListener('change', (e) => {
   }
   renderInstruments();
   renderRuler();
-  renderSegInfo();
+  updateTimeBadge();
   setInterval(renderRuler, 60000);
 })();
 </script>
