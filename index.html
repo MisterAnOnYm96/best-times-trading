@@ -18,7 +18,7 @@
   .ruler-wrap { 
     display: flex; 
     align-items: flex-end; 
-    gap: 2px; 
+    gap: 0px; /* Oraliq masofa olib tashlandi */
     height: 60px; 
     padding: 4px 0 0 0; 
     overflow: visible; 
@@ -28,7 +28,7 @@
   .ruler-seg {
     flex: 1 1 0; 
     min-width: 0; 
-    border-radius: 3px 3px 0 0; 
+    border-radius: 2px 2px 0 0; 
     position: relative;
     cursor: pointer; 
     transition: flex .35s cubic-bezier(.4,0,.2,1), opacity .35s, filter .2s; 
@@ -51,7 +51,7 @@
     flex: 3 1 0; 
     z-index: 10; 
     box-shadow: 0 2px 8px rgba(0,0,0,.4);
-    border-radius: 4px 4px 0 0; 
+    border-radius: 3px 3px 0 0; 
   }
   
   .ruler-wrap.has-active .ruler-seg:not(.active) { 
@@ -63,7 +63,7 @@
   .ruler-base-container {
     position: relative;
     width: 100%;
-    height: 15px; /* chiziqcha uchun joy */
+    height: 15px; 
     margin-top: 2px;
   }
   
@@ -94,13 +94,13 @@
   /* Hozirgi vaqt ko'rsatkichi (gorizontal chiziqcha) */
   .now-line {
     position: absolute;
-    top: 4px; /* shkala tagidan boshlanadi */
+    top: 4px; 
     height: 4px;
     background: #3b82f6;
     border-radius: 4px;
     z-index: 20;
     box-shadow: 0 0 6px rgba(59,130,246,.6);
-    transition: width 1s linear, left 1s linear;
+    /* transition olib tashlandi, JS orqali dinamik o'rnatiladi */
   }
 
   /* Ranglar */
@@ -121,7 +121,6 @@
       <select id="tzSelect" class="text-sm bg-gray-700 rounded-lg px-3 py-1.5 outline-none text-gray-100">
         <option value="5">Toshkent (UTC+5)</option>
         <option value="5.5">Hindiston (UTC+5:30)</option>
-        <option value="0">UTC</option>
         <option value="3">London (UTC+3)</option>
         <option value="-5">New York (UTC-5)</option>
         <option value="9">Tokyo (UTC+9)</option>
@@ -139,7 +138,7 @@
     <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
       <h3 class="font-bold text-base">Likvidlik shkalasi</h3>
       
-      <!-- Vaqt katakchasi (endi bosiladigan) -->
+      <!-- Vaqt katakchasi -->
       <button id="timeBadge" class="text-sm font-mono font-semibold bg-gray-700 text-gray-300 px-3 py-1 rounded-lg border border-gray-600 transition-colors hover:bg-gray-600 focus:outline-none">
         --:-- - --:--
       </button>
@@ -223,6 +222,8 @@ function renderRuler(){
       selectedHour = (selectedHour === utc) ? null : utc;
       renderRuler();
       updateTimeBadge();
+      // Tanlov o'zgarganda chiziqchani qayta hisoblash
+      updateNowLine();
     });
     wrap.appendChild(seg);
   }
@@ -244,7 +245,6 @@ function updateTimeBadge(){
   const badge = document.getElementById('timeBadge');
   
   if (selectedHour === null) {
-    // Tanlanmagan holatda hozirgi vaqt davri
     const now = new Date();
     const utcH = now.getUTCHours();
     const localNow = (utcH + tzOffset + 24) % 24;
@@ -256,7 +256,6 @@ function updateTimeBadge(){
     badge.textContent = `${start} - ${end}`;
     badge.className = 'text-sm font-mono font-semibold bg-gray-700 text-gray-300 px-3 py-1 rounded-lg border border-gray-600 transition-colors hover:bg-gray-600 focus:outline-none cursor-default';
   } else {
-    // Tanlangan holatda tanlangan vaqt
     const start = formatLocalTime(selectedHour);
     const end = formatLocalTime(selectedHour + 1);
     badge.textContent = `${start} - ${end}`;
@@ -270,6 +269,7 @@ document.getElementById('timeBadge').addEventListener('click', () => {
     selectedHour = null;
     renderRuler();
     updateTimeBadge();
+    updateNowLine();
   }
 });
 
@@ -282,15 +282,27 @@ function updateNowLine(){
   const utcMinutes = now.getUTCMinutes();
   const utcSeconds = now.getUTCSeconds();
   
-  // Hozirgi soatning umumiy foizi (0 dan 100 gacha)
+  // Hozirgi vaqt foizi
   const totalHours = utcHours + utcMinutes / 60 + utcSeconds / 3600;
-  const percentage = (totalHours / 24) * 100;
-  
-  // Chiziqchaning kengligi: 1 soat = 100/24 foiz
-  const widthPercentage = 100 / 24;
-  
-  line.style.left = `${percentage}%`;
-  line.style.width = `${widthPercentage}%`;
+  const nowPercentage = (totalHours / 24) * 100;
+
+  // Agar hech narsa tanlanmagan bo'lsa yoki tanlangan davr hozirgi davr bo'lmasa
+  if (selectedHour === null || selectedHour !== utcHours) {
+    line.style.left = `${nowPercentage}%`;
+    line.style.width = `${100 / 24}%`; 
+  } else {
+    // Agar tanlangan davr hozirgi davrga to'g'ri kelsa
+    // Tanlangan ustunning enini CSS'dan hisoblaymiz
+    // flex: 3 bo'lsa, umumiy 24 ta elementdan 1 tasi 3x, qolgan 23 tasi 0.6x
+    const totalFlex = 3 + (23 * 0.6); 
+    const selectedWidthPercent = (3 / totalFlex) * 100;
+    
+    // Ustunning boshlanish joyi
+    const startPercent = (utcHours / 24) * 100; // taxminiy
+    
+    line.style.left = `${startPercent}%`;
+    line.style.width = `${selectedWidthPercent}%`;
+  }
 }
 
 // ================== INSTRUMENTLAR ==================
@@ -366,12 +378,10 @@ document.getElementById('tzSelect').addEventListener('change', (e) => {
   updateTimeBadge();
   updateNowLine();
 
-  // Har sekundda chiziqchani harakatlantirish (silliqroq)
   setInterval(() => {
     updateNowLine();
   }, 1000);
 
-  // Har daqiqada vaqt katakchasini yangilash (soat o'zgarganda)
   setInterval(() => {
     if (selectedHour === null) {
       updateTimeBadge();
