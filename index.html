@@ -151,16 +151,6 @@ let selectedHour = null;
 // ================== YORDAMCHI ==================
 function pad(n){ return String(Math.floor(n)).padStart(2,'0'); }
 
-// Vaqtni 12:00 ko'rinishida qaytaradi
-function formatLocalTime(utcH) {
-  let local = (utcH + tzOffset) % 24;
-  if (local < 0) local += 24;
-  let h = Math.floor(local);
-  let m = Math.round((local - h) * 60);
-  return `${pad(h)}:${pad(m)}`;
-}
-
-// Yangi funksiya: 12:00 - 12:59 formatida oralikni qaytaradi
 function formatTimeInterval(startUtcH) {
   let localStart = (startUtcH + tzOffset) % 24;
   if (localStart < 0) localStart += 24;
@@ -173,13 +163,11 @@ function formatTimeInterval(startUtcH) {
   let hEnd = Math.floor(localEnd);
   let mEnd = Math.round((localEnd - hEnd) * 60);
   
-  // Agar tugash daqiqasi 0 bo'lsa (masalan 13:00), uni 12:59 ga o'zgartiramiz
   let displayEnd = '';
   if (mEnd === 0) {
     let prevHour = (hEnd - 1 + 24) % 24;
     displayEnd = `${pad(prevHour)}:59`;
   } else {
-    // Agar yarim soatlik bo'lsa (masalan 12:30), o'sha holicha qoladi
     displayEnd = `${pad(hEnd)}:${pad(mEnd)}`;
   }
 
@@ -208,7 +196,6 @@ function renderRuler(){
     seg.id = `seg-${utc}`;
     if (selectedHour !== null && utc === selectedHour) seg.classList.add('active');
     seg.dataset.utc = utc;
-    // Tooltip'da ham yangi formatni ishlatamiz
     seg.title = formatTimeInterval(utc);
     
     seg.addEventListener('click', () => {
@@ -234,11 +221,9 @@ function updateTimeBadge(){
     const now = new Date();
     const utcH = now.getUTCHours();
     
-    // Yangi format funksiyasidan foydalanamiz
     badge.textContent = formatTimeInterval(utcH);
     badge.className = 'text-sm font-mono font-semibold bg-gray-700 text-gray-300 px-3 py-1 rounded-lg border border-gray-600 transition-colors hover:bg-gray-600 focus:outline-none cursor-default';
   } else {
-    // Tanlangan vaqt uchun ham yangi format
     badge.textContent = formatTimeInterval(selectedHour);
     badge.className = 'text-sm font-mono font-semibold bg-brand-500 text-white px-3 py-1 rounded-lg border border-brand-500 transition-colors hover:bg-brand-600 focus:outline-none cursor-pointer';
   }
@@ -303,14 +288,12 @@ function renderInstrumentList(type){
   const items = type === 'Hammasi' ? INSTRUMENTS : INSTRUMENTS.filter(i => i.type === type);
   
   list.innerHTML = items.map(i => {
-    // Bu yerda ham yangi format funksiyasidan foydalanamiz
     let timeStr = formatTimeInterval(i.utcStart);
-    
-    // Agar ikkinchi vaqt bo'lsa (masalan US30), uni ham yangilaymiz
     if (i.utcStart2 !== undefined) {
       timeStr += `<br><span class="text-xs text-gray-500">va</span> ${formatTimeInterval(i.utcStart2)}`;
     }
 
+    // Bu yerda "⏱" emoji olib tashlandi va "ml-auto" bilan vaqt o'ngga surildi
     return `
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-gray-700/50 border border-gray-700">
         <div>
@@ -318,8 +301,7 @@ function renderInstrumentList(type){
           <p class="text-xs text-gray-400 uppercase tracking-wide">${i.name}</p>
         </div>
         <div class="text-left sm:text-right">
-          <div class="inline-flex items-center gap-2 text-sm font-mono font-bold text-gray-200 bg-gray-800 px-3 py-1.5 rounded-lg border border-gray-600">
-            <span class="text-gray-400">⏱</span>
+          <div class="inline-flex sm:ml-auto items-center text-sm font-mono font-bold text-gray-200 bg-gray-800 px-3 py-1.5 rounded-lg border border-gray-600">
             <span class="text-center">${timeStr}</span>
           </div>
         </div>
