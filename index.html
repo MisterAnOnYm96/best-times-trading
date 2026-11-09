@@ -19,7 +19,7 @@
     display: flex; 
     align-items: flex-end; 
     gap: 2px; 
-    height: 80px; /* umumiy balandlik kamaytirildi */
+    height: 70px; 
     padding: 8px 0 0 0; 
     overflow: visible; 
     position: relative;
@@ -27,11 +27,11 @@
   .ruler-seg {
     flex: 1 1 0; 
     min-width: 0; 
-    height: 40px; /* bo'laklar balandligi kamaytirildi */
+    height: 40px; 
     border-radius: 4px 4px 0 0; 
     position: relative;
     cursor: pointer; 
-    transition: all .35s cubic-bezier(.4,0,.2,1); 
+    transition: flex .35s cubic-bezier(.4,0,.2,1), height .35s cubic-bezier(.4,0,.2,1), opacity .35s, filter .2s; 
     display: flex;
     flex-direction: column; 
     justify-content: center; 
@@ -43,21 +43,28 @@
   }
   .ruler-seg:hover { filter: brightness(1.08); }
   
-  /* Raqamlarni yashirish, faqat hover yoki active bo'lganda ko'rsatish */
+  /* Raqamlar holati */
   .ruler-seg span {
+    display: inline-block;
     opacity: 0;
-    transition: opacity 0.2s ease;
+    visibility: hidden;
+    transform: scale(0.8);
+    transition: opacity 0.2s ease, visibility 0.2s ease, transform 0.2s ease;
     pointer-events: none;
   }
+  
+  /* Faqat hover yoki active bo'lganda ko'rinadi */
   .ruler-seg:hover span,
   .ruler-seg.active span {
     opacity: 1;
+    visibility: visible;
+    transform: scale(1);
   }
 
   /* Kattalashgan segment */
   .ruler-seg.active {
     flex: 3 1 0; 
-    height: 70px; /* aktiv bo'lganda balandroq */
+    height: 60px; 
     z-index: 10; 
     box-shadow: 0 4px 12px rgba(0,0,0,.25);
     border-radius: 6px 6px 0 0; 
@@ -70,7 +77,7 @@
     height: 30px; 
     opacity: .6; 
   }
-  
+
   /* Hozirgi soat belgisi */
   .ruler-seg.now::after {
     content: ''; 
@@ -113,26 +120,6 @@
   .liq-medium  { background: #facc15; color:#3f3f46; }
   .liq-low     { background: #cbd5e1; color:#64748b; }
   .dark .liq-low { background: #475569; color:#cbd5e1; }
-
-  /* Pastki shkala (legend) */
-  .legend-bar {
-    display: flex;
-    width: 100%;
-    margin-top: 8px;
-    font-size: 11px;
-    text-align: center;
-    border-radius: 4px;
-    overflow: hidden;
-  }
-  .legend-bar > div {
-    padding: 4px 0;
-    color: #fff;
-    font-weight: 500;
-  }
-  .legend-bar > div.low { background: #94a3b8; color: #fff; }
-  .legend-bar > div.medium { background: #facc15; color: #3f3f46; }
-  .legend-bar > div.high { background: #22c55e; color: #fff; }
-  .legend-bar > div.overlap { background: linear-gradient(90deg, #34d399, #059669); color: #fff; }
 </style>
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-colors">
@@ -160,20 +147,22 @@
   <!-- 24 SOATLIK TIMELINE RULER -->
   <section class="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm text-gray-800 dark:text-gray-100">
     
-    <!-- Sarlavha butun qatorni egallaydi -->
-    <h3 class="font-bold mb-4 w-full">24 soatlik likvidlik shkalasi</h3>
+    <!-- Sarlavha va Legend bir qatorda -->
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+      <h3 class="font-bold">24 soatlik likvidlik shkalasi</h3>
+      
+      <!-- Legend qaytdi -->
+      <div class="flex flex-wrap items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-gradient-to-b from-green-400 to-emerald-600"></span> Overlap</span>
+        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-green-500"></span> Yuqori</span>
+        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-yellow-400"></span> O'rta</span>
+        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-gray-300 dark:bg-gray-600"></span> Past</span>
+      </div>
+    </div>
 
-    <!-- Ruler (chiziq) -->
+    <!-- Ruler -->
     <div id="rulerWrap" class="ruler-wrap"></div>
     <div class="ruler-base" id="rulerBase"></div>
-
-    <!-- Pastki shkala (Overlap, Yuqori, O'rta, Past) butun qator bo'ylab -->
-    <div class="legend-bar">
-      <div class="low" style="flex: 8;">Past</div>
-      <div class="medium" style="flex: 6;">O'rta</div>
-      <div class="high" style="flex: 6;">Yuqori</div>
-      <div class="overlap" style="flex: 4;">Overlap</div>
-    </div>
 
     <!-- Ma'lumot paneli -->
     <div id="segInfo" class="mt-4 text-sm bg-gray-50 dark:bg-gray-700/40 rounded-xl px-4 py-3 min-h-[52px] text-gray-600 dark:text-gray-300">
@@ -256,7 +245,6 @@ function renderRuler(){
     seg.dataset.utc = utc;
     seg.title = `${formatLocalTime(utc)} — ${liquidityLabel(liq)}`;
     
-    // Raqamni span ichiga olamiz, CSS orqali yashiriladi
     seg.innerHTML = `<span>${pad(local)}</span>`;
     
     seg.addEventListener('click', () => {
