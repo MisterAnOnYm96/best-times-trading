@@ -24,7 +24,7 @@
     overflow: visible; 
     position: relative;
     margin-bottom: 6px; 
-    touch-action: none; /* Mobil brauzerda ekran aylanib ketmasligi uchun */
+    touch-action: none;
     user-select: none;
   }
   
@@ -43,13 +43,11 @@
   }
   .ruler-seg:hover { filter: brightness(1.08); }
 
-  /* Balandliklar */
   .ruler-seg.liq-low     { height: 15px; }
   .ruler-seg.liq-medium  { height: 25px; }
   .ruler-seg.liq-high    { height: 35px; }
   .ruler-seg.liq-overlap { height: 45px; }
 
-  /* Kattalashgan segment */
   .ruler-seg.active {
     flex: 3 1 0; 
     z-index: 10; 
@@ -62,7 +60,6 @@
     opacity: .4; 
   }
 
-  /* Hozirgi vaqt ko'rsatkichi */
   .now-line-container {
     position: relative;
     width: 100%;
@@ -80,7 +77,6 @@
     transition: left 0.35s cubic-bezier(.4,0,.2,1), width 0.35s cubic-bezier(.4,0,.2,1);
   }
 
-  /* Ranglar */
   .liq-overlap { background: linear-gradient(180deg,#34d399,#059669); }
   .liq-high    { background: #22c55e; }
   .liq-medium  { background: #facc15; color:#3f3f46; }
@@ -102,20 +98,16 @@
   <!-- KUNLIK TIMELINE RULER -->
   <section class="bg-gray-800 rounded-2xl p-4 shadow-sm text-gray-100">
     
-    <!-- Sarlavha va Vaqt katakchasi -->
     <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
       <h3 class="font-bold text-base">Likvidlik shkalasi</h3>
       
-      <!-- Vaqt katakchasi -->
       <button id="timeBadge" class="text-sm font-mono font-semibold bg-gray-700 text-gray-300 px-3 py-1 rounded-lg border border-gray-600 transition-colors hover:bg-gray-600 focus:outline-none">
         --:-- - --:--
       </button>
     </div>
 
-    <!-- Ruler (Ustunlar) -->
     <div id="rulerWrap" class="ruler-wrap"></div>
     
-    <!-- Hozirgi vaqt chizig'i -->
     <div class="now-line-container" id="baseContainer">
       <div id="nowLine" class="now-line"></div>
     </div>
@@ -149,6 +141,7 @@ const INSTRUMENTS = [
 // ================== HOLAT ==================
 let tzOffset = -new Date().getTimezoneOffset() / 60; 
 let selectedHour = null;
+let expandedInstrument = null; // Qaysi instrument ochilganini saqlash
 
 // ================== YORDAMCHI ==================
 function pad(n){ return String(Math.floor(n)).padStart(2,'0'); }
@@ -255,12 +248,11 @@ function updateNowLine(){
   }
 }
 
-// ================== DRAG / SWIPE MANTIG'I ==================
+// ================== DRAG / SWIPE ==================
 const rulerWrap = document.getElementById('rulerWrap');
 let isDragging = false;
 let lastSelectedHour = null;
 
-// Yordamchi: ekrandagi X koordinataga qarab qaysi soat ekanligini aniqlash
 function getHourFromX(clientX) {
   const segments = document.querySelectorAll('.ruler-seg');
   for (let i = 0; i < segments.length; i++) {
@@ -269,13 +261,11 @@ function getHourFromX(clientX) {
       return parseInt(segments[i].dataset.utc);
     }
   }
-  // Agar chetga chiqib ketsa, eng yaqinini olish
   if (clientX < segments[0].getBoundingClientRect().left) return 0;
   if (clientX > segments[23].getBoundingClientRect().right) return 23;
   return null;
 }
 
-// Surishni boshlash
 function startDrag(e) {
   isDragging = true;
   const x = e.touches ? e.touches[0].clientX : e.clientX;
@@ -290,10 +280,8 @@ function startDrag(e) {
   }
 }
 
-// Surish jarayoni
 function onDrag(e) {
   if (!isDragging) return;
-  // Mobil brauzerda scroll bo'lib ketmasligi uchun
   if (e.cancelable) e.preventDefault(); 
   
   const x = e.touches ? e.touches[0].clientX : e.clientX;
@@ -308,12 +296,10 @@ function onDrag(e) {
   }
 }
 
-// Surishni tugatish
 function endDrag() {
   isDragging = false;
 }
 
-// Event Listener'larni ulash (Sichqoncha va Barmoq uchun)
 rulerWrap.addEventListener('mousedown', startDrag);
 rulerWrap.addEventListener('mousemove', onDrag);
 window.addEventListener('mouseup', endDrag);
@@ -348,26 +334,49 @@ function renderInstrumentList(type){
   const list = document.getElementById('instrumentList');
   const items = type === 'Hammasi' ? INSTRUMENTS : INSTRUMENTS.filter(i => i.type === type);
   
-  list.innerHTML = items.map(i => {
-    let timeStr = formatTimeInterval(i.utcStart);
+  list.innerHTML = items.map((i, index) => {
+    // Ikki qator uchun HTML shakllantirish
+    let timeStr = `<div>${formatTimeInterval(i.utcStart)}</div>`;
     if (i.utcStart2 !== undefined) {
-      timeStr += `<br><span class="text-xs text-gray-500">va</span> ${formatTimeInterval(i.utcStart2)}`;
+      timeStr += `<div>${formatTimeInterval(i.utcStart2)}</div>`; // "va" olib tashlandi, faqat yangi qator
     }
 
+    // Instrument ochiqmi yoki yo'qmi tekshirish
+    const isExpanded = expandedInstrument === i.pair;
+
     return `
-      <div class="flex flex-row items-center justify-between gap-3 p-4 rounded-xl bg-gray-700/50 border border-gray-700">
-        <div class="min-w-0 flex-1">
-          <p class="font-bold text-base text-white truncate">${i.pair}</p>
-          <p class="text-xs text-gray-400 uppercase tracking-wide truncate">${i.name}</p>
-        </div>
-        <div class="flex-shrink-0">
-          <div class="inline-flex items-center text-sm font-mono font-bold text-gray-200 bg-gray-800 px-3 py-1.5 rounded-lg border border-gray-600">
-            <span class="text-center">${timeStr}</span>
+      <div class="bg-gray-700/50 border border-gray-700 rounded-xl overflow-hidden transition-all duration-300">
+        <!-- Bosh qism (Faqat qisqa nom va vaqt) -->
+        <div class="inst-header flex flex-row items-center justify-between gap-3 p-4 cursor-pointer hover:bg-gray-700/80 transition-colors" data-pair="${i.pair}">
+          <div class="min-w-0 flex-1">
+            <p class="font-bold text-base text-white">${i.pair}</p>
           </div>
+          <div class="flex-shrink-0">
+            <div class="flex flex-col text-sm font-mono font-bold text-gray-200 bg-gray-800 px-3 py-1.5 rounded-lg border border-gray-600">
+              ${timeStr}
+            </div>
+          </div>
+        </div>
+
+        <!-- Ochiladigan qism (To'liq nom) -->
+        <div class="inst-body px-4 overflow-hidden transition-all duration-300 ${isExpanded ? 'max-h-20 pb-4 opacity-100' : 'max-h-0 opacity-0'}">
+          <p class="text-sm text-gray-400 uppercase tracking-wide">${i.name}</p>
         </div>
       </div>
     `;
   }).join('');
+
+  // Hodisalarni (Event) ulash
+  document.querySelectorAll('.inst-header').forEach(header => {
+    header.addEventListener('click', () => {
+      const pair = header.dataset.pair;
+      // Agar o'sha bosilgan bo'lsa yopamiz, boshqasi bo'lsa o'shanga o'tamiz
+      expandedInstrument = (expandedInstrument === pair) ? null : pair;
+      // Ro'yxatni qayta chizamiz
+      const activeType = document.querySelector('.inst-btn.bg-brand-500')?.dataset.type || 'Hammasi';
+      renderInstrumentList(activeType);
+    });
+  });
 }
 
 // ================== INIT ==================
