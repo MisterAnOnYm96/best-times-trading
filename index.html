@@ -90,6 +90,11 @@
   .sheet-content {
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
+  
+  /* Filtr tugmalari dizayni */
+  .filter-tag {
+    transition: all 0.2s ease;
+  }
 </style>
 </head>
 <body class="bg-gray-900 text-gray-100 transition-colors overflow-hidden">
@@ -99,7 +104,6 @@
   <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
     <h1 class="font-bold text-lg">📊 Trading Times</h1>
     
-    <!-- O'ng burchakdagi tugmalar -->
     <div class="flex items-center gap-1">
       <!-- Filtr tugmasi -->
       <button id="filterBtn" class="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-gray-700 transition-colors" title="Filtr">
@@ -152,24 +156,20 @@
 
 <!-- ===== BOTTOM SHEET (FILTR OYNASI) ===== -->
 <div id="filterSheet" class="fixed inset-0 z-50 pointer-events-none">
-  <!-- Qoraytirilgan fon (Overlay) -->
   <div id="sheetOverlay" class="absolute inset-0 bg-black/60 opacity-0 sheet-overlay pointer-events-none"></div>
   
-  <!-- Yarim oyna (Content) -->
-  <div id="sheetContent" class="absolute bottom-0 left-0 right-0 bg-gray-800 rounded-t-3xl p-5 transform translate-y-full sheet-content pointer-events-auto shadow-2xl border-t border-gray-700 max-h-[80vh] flex flex-col">
+  <div id="sheetContent" class="absolute bottom-0 left-0 right-0 bg-gray-800 rounded-t-3xl p-5 transform translate-y-full sheet-content pointer-events-auto shadow-2xl border-t border-gray-700">
     
-    <!-- Tutqich (drag handle) -->
-    <div class="w-12 h-1.5 bg-gray-600 rounded-full mx-auto mb-4 shrink-0"></div>
+    <!-- Tutqich -->
+    <div class="w-12 h-1.5 bg-gray-600 rounded-full mx-auto mb-4"></div>
     
-    <h3 class="text-lg font-bold mb-4 shrink-0">Instrumentlar guruhi</h3>
-    
-    <!-- Guruhlar ro'yxati -->
-    <div id="filterGroups" class="flex flex-col gap-2 overflow-y-auto mb-4 flex-1">
+    <!-- Guruhlar ro'yxati (bitta qatorda, kichkina) -->
+    <div id="filterGroups" class="flex flex-wrap gap-2 mb-6">
       <!-- JS tomonidan to'ldiriladi -->
     </div>
     
     <!-- Saqlash tugmasi -->
-    <button id="saveFilterBtn" class="w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 rounded-xl transition-colors shrink-0">
+    <button id="saveFilterBtn" class="w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 rounded-xl transition-colors">
       Saqlash
     </button>
   </div>
@@ -191,7 +191,9 @@ const INSTRUMENTS = [
 let tzOffset = -new Date().getTimezoneOffset() / 60; 
 let selectedHour = null;
 let expandedInstrument = null; 
-let currentFilterType = 'Hammasi'; // Hozirgi filtr
+
+// Tanlangan guruhlar (Massiv). Standart holatda hammasi tanlangan bo'ladi.
+let currentFilterTypes = ['Forex', 'Metall', 'Indeks']; 
 
 // ================== YORDAMCHI ==================
 function pad(n){ return String(Math.floor(n)).padStart(2,'0'); }
@@ -229,7 +231,7 @@ function liquidityAt(utcHour){
   return 'low';
 }
 
-// ================== BOTTOM SHEET MANTIG'I ==================
+// ================== BOTTOM SHEET ==================
 const filterSheet = document.getElementById('filterSheet');
 const sheetOverlay = document.getElementById('sheetOverlay');
 const sheetContent = document.getElementById('sheetContent');
@@ -237,28 +239,41 @@ const filterBtn = document.getElementById('filterBtn');
 const saveFilterBtn = document.getElementById('saveFilterBtn');
 const filterGroups = document.getElementById('filterGroups');
 
-let tempFilterType = currentFilterType;
+let tempFilterTypes = [...currentFilterTypes];
 
 function openSheet() {
-  // Guruhlarni to'ldirish
-  const types = ['Hammasi', ...new Set(INSTRUMENTS.map(i => i.type))];
-  tempFilterType = currentFilterType;
+  // Mavjud unikal turlarni yig'ish
+  const types = [...new Set(INSTRUMENTS.map(i => i.type))];
+  tempFilterTypes = [...currentFilterTypes];
   
-  filterGroups.innerHTML = types.map(t => `
-    <label class="flex items-center justify-between p-3 bg-gray-700/50 rounded-xl cursor-pointer hover:bg-gray-700 transition-colors border border-gray-700">
-      <span class="font-medium">${t === 'Hammasi' ? 'Barchasi (Hammasi)' : t}</span>
-      <input type="radio" name="instGroup" value="${t}" class="w-5 h-5 text-brand-500 bg-gray-800 border-gray-600 focus:ring-brand-500" ${t === tempFilterType ? 'checked' : ''}>
-    </label>
-  `).join('');
+  filterGroups.innerHTML = types.map(t => {
+    const isSelected = tempFilterTypes.includes(t);
+    return `
+      <button class="filter-tag px-4 py-2 rounded-lg font-medium text-sm border ${isSelected ? 'bg-brand-500 border-brand-500 text-white' : 'bg-gray-700 border-gray-600 text-gray-300'}" data-type="${t}">
+        ${t}
+      </button>
+    `;
+  }).join('');
 
-  // Radio o'zgarganda tempFilterType ni yangilash
-  document.querySelectorAll('input[name="instGroup"]').forEach(radio => {
-    radio.addEventListener('change', (e) => {
-      tempFilterType = e.target.value;
+  // Tugmalar ustiga bosilganda tanlash/bekor qilish
+  document.querySelectorAll('.filter-tag').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const type = btn.dataset.type;
+      if (tempFilterTypes.includes(type)) {
+        // Agar oxirgi tanlangan bo'lsa va faqat bitta qolsa, o'chirishga ruxsat bermaymiz (ixtiyoriy)
+        if (tempFilterTypes.length > 1) {
+          tempFilterTypes = tempFilterTypes.filter(t => t !== type);
+          btn.classList.remove('bg-brand-500', 'border-brand-500', 'text-white');
+          btn.classList.add('bg-gray-700', 'border-gray-600', 'text-gray-300');
+        }
+      } else {
+        tempFilterTypes.push(type);
+        btn.classList.add('bg-brand-500', 'border-brand-500', 'text-white');
+        btn.classList.remove('bg-gray-700', 'border-gray-600', 'text-gray-300');
+      }
     });
   });
 
-  // Oynani ko'rsatish
   filterSheet.classList.remove('pointer-events-none');
   sheetOverlay.classList.remove('opacity-0', 'pointer-events-none');
   sheetContent.classList.remove('translate-y-full');
@@ -267,7 +282,6 @@ function openSheet() {
 function closeSheet() {
   sheetOverlay.classList.add('opacity-0', 'pointer-events-none');
   sheetContent.classList.add('translate-y-full');
-  
   setTimeout(() => {
     filterSheet.classList.add('pointer-events-none');
   }, 300);
@@ -277,8 +291,8 @@ filterBtn.addEventListener('click', openSheet);
 sheetOverlay.addEventListener('click', closeSheet);
 
 saveFilterBtn.addEventListener('click', () => {
-  currentFilterType = tempFilterType;
-  renderInstrumentList(); // Ro'yxatni yangilash
+  currentFilterTypes = [...tempFilterTypes];
+  renderInstrumentList(); 
   closeSheet();
 });
 
@@ -301,7 +315,7 @@ function renderRuler(){
   else wrap.classList.remove('has-active');
 }
 
-// ================== RENDER: VAQT KATAKCHASI ==================
+// ================== VAQT KATAKCHASI ==================
 function updateTimeBadge(){
   const badge = document.getElementById('timeBadge');
   
@@ -327,7 +341,7 @@ document.getElementById('timeBadge').addEventListener('click', () => {
   }
 });
 
-// ================== RENDER: HOZIRGI VAQT BELGISI ==================
+// ================== HOZIRGI VAQT BELGISI ==================
 function updateNowLine(){
   const line = document.getElementById('nowLine');
   const baseContainer = document.getElementById('baseContainer');
@@ -409,9 +423,14 @@ window.addEventListener('touchend', endDrag);
 // ================== INSTRUMENTLAR ==================
 function renderInstrumentList(){
   const list = document.getElementById('instrumentList');
-  // Filtrga qarab instrumentlarni tanlaymiz
-  const items = currentFilterType === 'Hammasi' ? INSTRUMENTS : INSTRUMENTS.filter(i => i.type === currentFilterType);
+  // Tanlangan filtrlar bo'yicha filtrlash
+  const items = INSTRUMENTS.filter(i => currentFilterTypes.includes(i.type));
   
+  if (items.length === 0) {
+    list.innerHTML = `<div class="text-center text-gray-500 py-4 text-sm">Tanlangan guruhda instrumentlar yo'q</div>`;
+    return;
+  }
+
   list.innerHTML = items.map((i, index) => {
     let timeStr = `<div>${formatTimeInterval(i.utcStart)}</div>`;
     if (i.utcStart2 !== undefined) {
