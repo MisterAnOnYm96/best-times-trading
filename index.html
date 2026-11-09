@@ -18,7 +18,7 @@
   .ruler-wrap { 
     display: flex; 
     align-items: flex-end; 
-    gap: 0px; /* Oraliq masofa olib tashlandi */
+    gap: 0px; 
     height: 60px; 
     padding: 4px 0 0 0; 
     overflow: visible; 
@@ -91,7 +91,7 @@
     opacity: .8; 
   }
 
-  /* Hozirgi vaqt ko'rsatkichi (gorizontal chiziqcha) */
+  /* Hozirgi vaqt ko'rsatkichi */
   .now-line {
     position: absolute;
     top: 4px; 
@@ -100,7 +100,8 @@
     border-radius: 4px;
     z-index: 20;
     box-shadow: 0 0 6px rgba(59,130,246,.6);
-    /* transition olib tashlandi, JS orqali dinamik o'rnatiladi */
+    /* Silliq o'tish uchun */
+    transition: left 0.35s cubic-bezier(.4,0,.2,1), width 0.35s cubic-bezier(.4,0,.2,1);
   }
 
   /* Ranglar */
@@ -147,8 +148,8 @@
     <!-- Ruler -->
     <div id="rulerWrap" class="ruler-wrap"></div>
     
-    <!-- Lineyka va hozirgi vaqt belgisi (pastda) -->
-    <div class="ruler-base-container">
+    <!-- Lineyka va hozirgi vaqt belgisi -->
+    <div class="ruler-base-container" id="baseContainer">
       <div class="ruler-base" id="rulerBase"></div>
       <div id="nowLine" class="now-line"></div>
     </div>
@@ -214,6 +215,7 @@ function renderRuler(){
     const liq = liquidityAt(utc);
     const seg = document.createElement('div');
     seg.className = `ruler-seg liq-${liq}`;
+    seg.id = `seg-${utc}`; // Har bir ustunga ID beramiz
     if (selectedHour !== null && utc === selectedHour) seg.classList.add('active');
     seg.dataset.utc = utc;
     seg.title = `${formatLocalTime(utc)} — ${formatLocalTime(utc+1)}`;
@@ -222,8 +224,7 @@ function renderRuler(){
       selectedHour = (selectedHour === utc) ? null : utc;
       renderRuler();
       updateTimeBadge();
-      // Tanlov o'zgarganda chiziqchani qayta hisoblash
-      updateNowLine();
+      updateNowLine(); // Bosilganda chiziqni qayta hisoblash
     });
     wrap.appendChild(seg);
   }
@@ -263,7 +264,6 @@ function updateTimeBadge(){
   }
 }
 
-// Vaqt katakchasini bosganda tanlovni bekor qilish
 document.getElementById('timeBadge').addEventListener('click', () => {
   if (selectedHour !== null) {
     selectedHour = null;
@@ -276,32 +276,46 @@ document.getElementById('timeBadge').addEventListener('click', () => {
 // ================== RENDER: HOZIRGI VAQT BELGISI ==================
 function updateNowLine(){
   const line = document.getElementById('nowLine');
+  const baseContainer = document.getElementById('baseContainer');
   const now = new Date();
   
   const utcHours = now.getUTCHours();
   const utcMinutes = now.getUTCMinutes();
   const utcSeconds = now.getUTCSeconds();
   
-  // Hozirgi vaqt foizi
+  // Hozirgi vaqt foizi (tanlanmagan holat uchun)
   const totalHours = utcHours + utcMinutes / 60 + utcSeconds / 3600;
   const nowPercentage = (totalHours / 24) * 100;
 
-  // Agar hech narsa tanlanmagan bo'lsa yoki tanlangan davr hozirgi davr bo'lmasa
-  if (selectedHour === null || selectedHour !== utcHours) {
-    line.style.left = `${nowPercentage}%`;
-    line.style.width = `${100 / 24}%`; 
+  const utcNow = now.getUTCHours();
+
+  // Agar biror davr tanlangan bo'lsa
+  if (selectedHour !== null) {
+    const activeSeg = document.getElementById(`seg-${selectedHour}`);
+    
+    if (activeSeg) {
+      const segRect = activeSeg.getBoundingClientRect();
+      const baseRect = baseContainer.getBoundingClientRect();
+      
+      // Tanlangan ustunning boshlanish nuqtasi (container'ga nisbatan)
+      const leftOffset = segRect.left - baseRect.left;
+      
+      // Tanlangan ustunning eniga teng qilib chiziqni o'rnatamiz
+      line.style.left = `${leftOffset}px`;
+      line.style.width = `${segRect.width}px`;
+      
+      // Agar tanlangan davr hozirgi davr bo'lsa, rangini yorqinroq qilish (ixtiyoriy)
+      if (selectedHour === utcNow) {
+        line.style.opacity = 1;
+      } else {
+        line.style.opacity = 0.5; // Boshqa davr tanlansa biroz xiraroq
+      }
+    }
   } else {
-    // Agar tanlangan davr hozirgi davrga to'g'ri kelsa
-    // Tanlangan ustunning enini CSS'dan hisoblaymiz
-    // flex: 3 bo'lsa, umumiy 24 ta elementdan 1 tasi 3x, qolgan 23 tasi 0.6x
-    const totalFlex = 3 + (23 * 0.6); 
-    const selectedWidthPercent = (3 / totalFlex) * 100;
-    
-    // Ustunning boshlanish joyi
-    const startPercent = (utcHours / 24) * 100; // taxminiy
-    
-    line.style.left = `${startPercent}%`;
-    line.style.width = `${selectedWidthPercent}%`;
+    // Hech narsa tanlanmagan bo'lsa, standart 1 soatlik eni bilan hozirgi vaqtni ko'rsatadi
+    line.style.left = `${nowPercentage}%`;
+    line.style.width = `${100 / 24}%`;
+    line.style.opacity = 1;
   }
 }
 
@@ -361,7 +375,8 @@ document.getElementById('tzSelect').addEventListener('change', (e) => {
   selectedHour = null;
   renderRuler();
   updateTimeBadge();
-  updateNowLine();
+  // Render bo'lib bo'lgach chiziqni yangilash uchun kichik kechikish
+  setTimeout(updateNowLine, 50); 
   renderInstrumentList(document.querySelector('.inst-btn.bg-brand-500')?.dataset.type || 'Hammasi');
 });
 
@@ -376,17 +391,24 @@ document.getElementById('tzSelect').addEventListener('change', (e) => {
   renderInstruments();
   renderRuler();
   updateTimeBadge();
-  updateNowLine();
+  
+  // Sahifa yuklanganda chiziqni to'g'ri joylashtirish
+  setTimeout(updateNowLine, 50);
 
+  // Har sekundda hozirgi vaqt chizig'ini yangilash
   setInterval(() => {
     updateNowLine();
   }, 1000);
 
+  // Har daqiqada vaqt katakchasini yangilash
   setInterval(() => {
     if (selectedHour === null) {
       updateTimeBadge();
     }
   }, 60000);
+
+  // Ekran o'lchami o'zgarganda chiziqni qayta hisoblash (mobil qurilmalar uchun)
+  window.addEventListener('resize', updateNowLine);
 })();
 </script>
 </body>
