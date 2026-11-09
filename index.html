@@ -36,30 +36,9 @@
     flex-direction: column; 
     justify-content: center; 
     align-items: center; 
-    font-family: ui-monospace, monospace; 
-    font-size: 11px; 
-    color: #fff; 
     user-select: none;
   }
   .ruler-seg:hover { filter: brightness(1.08); }
-  
-  /* Raqamlar holati */
-  .ruler-seg span {
-    display: inline-block;
-    opacity: 0;
-    visibility: hidden;
-    transform: scale(0.8);
-    transition: opacity 0.2s ease, visibility 0.2s ease, transform 0.2s ease;
-    pointer-events: none;
-  }
-  
-  /* Faqat hover yoki active bo'lganda ko'rinadi */
-  .ruler-seg:hover span,
-  .ruler-seg.active span {
-    opacity: 1;
-    visibility: visible;
-    transform: scale(1);
-  }
 
   /* Kattalashgan segment */
   .ruler-seg.active {
@@ -68,8 +47,6 @@
     z-index: 10; 
     box-shadow: 0 4px 12px rgba(0,0,0,.25);
     border-radius: 6px 6px 0 0; 
-    font-size: 14px; 
-    font-weight: 700;
   }
   
   .ruler-wrap.has-active .ruler-seg:not(.active) { 
@@ -147,11 +124,10 @@
   <!-- 24 SOATLIK TIMELINE RULER -->
   <section class="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm text-gray-800 dark:text-gray-100">
     
-    <!-- Sarlavha va Legend bir qatorda -->
+    <!-- Sarlavha va Legend -->
     <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
       <h3 class="font-bold">24 soatlik likvidlik shkalasi</h3>
       
-      <!-- Legend qaytdi -->
       <div class="flex flex-wrap items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
         <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-gradient-to-b from-green-400 to-emerald-600"></span> Overlap</span>
         <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-green-500"></span> Yuqori</span>
@@ -164,9 +140,9 @@
     <div id="rulerWrap" class="ruler-wrap"></div>
     <div class="ruler-base" id="rulerBase"></div>
 
-    <!-- Ma'lumot paneli -->
-    <div id="segInfo" class="mt-4 text-sm bg-gray-50 dark:bg-gray-700/40 rounded-xl px-4 py-3 min-h-[52px] text-gray-600 dark:text-gray-300">
-      Soatni tanlang — likvidlik va tavsiya ko'rsatiladi.
+    <!-- Ma'lumot paneli (2 qatorli) -->
+    <div id="segInfo" class="mt-4 text-sm bg-gray-50 dark:bg-gray-700/40 rounded-xl px-4 py-3 text-gray-600 dark:text-gray-300 flex flex-col gap-1">
+      <!-- JS tomonidan to'ldiriladi -->
     </div>
   </section>
 
@@ -226,7 +202,7 @@ function liquidityAt(utcHour){
   return 'low';
 }
 function liquidityLabel(liq){
-  return { overlap: 'Overlap ⭐', high: 'Yuqori', medium: "O'rta", low: 'Past' }[liq];
+  return { overlap: 'Overlap', high: 'Yuqori', medium: "O'rta", low: 'Past' }[liq];
 }
 
 // ================== RENDER: RULER ==================
@@ -237,7 +213,6 @@ function renderRuler(){
 
   wrap.innerHTML = '';
   for (let utc = 0; utc < 24; utc++){
-    const local = utcHourToLocal(utc);
     const liq = liquidityAt(utc);
     const seg = document.createElement('div');
     seg.className = `ruler-seg liq-${liq}` + (utc === utcNow ? ' now' : '');
@@ -245,7 +220,7 @@ function renderRuler(){
     seg.dataset.utc = utc;
     seg.title = `${formatLocalTime(utc)} — ${liquidityLabel(liq)}`;
     
-    seg.innerHTML = `<span>${pad(local)}</span>`;
+    // Ichida hech qanday raqam yo'q!
     
     seg.addEventListener('click', () => {
       selectedHour = (selectedHour === utc) ? null : utc;
@@ -267,23 +242,36 @@ function renderRuler(){
   base.innerHTML = ticks;
 }
 
+// ================== RENDER: MA'LUMOT PANELI ==================
 function renderSegInfo(){
   const info = document.getElementById('segInfo');
+  
+  // Agar hech narsa tanlanmagan bo'lsa
   if (selectedHour === null){
-    info.innerHTML = 'Soatni tanlang — likvidlik va tavsiya ko\'rsatiladi.';
+    info.innerHTML = `
+      <div class="font-medium text-gray-800 dark:text-gray-200">Vaqt tanlang</div>
+      <div class="text-gray-500 dark:text-gray-400">Likvidlik: -</div>
+    `;
     return;
   }
+  
+  // Agar tanlangan bo'lsa
   const liq = liquidityAt(selectedHour);
-  const colors = { overlap: 'text-emerald-600 dark:text-emerald-400', high: 'text-green-600 dark:text-green-400', medium: 'text-yellow-600 dark:text-yellow-400', low: 'text-gray-500 dark:text-gray-400' };
-  let advice = { overlap: 'Eng yaxshi vaqt! London va NY birga ochiq — yuqori likvidlik, tor spread.', high: 'Yaxshi vaqt — asosiy sessiya faol.', medium: 'O\'rtacha — Osiyo sessiyasi, JPY/AUD juftliklariga mos.', low: 'Past likvidlik — ehtiyot bo\'ling, spread keng bo\'lishi mumkin.' }[liq];
+  const colors = { 
+    overlap: 'text-emerald-600 dark:text-emerald-400', 
+    high: 'text-green-600 dark:text-green-400', 
+    medium: 'text-yellow-600 dark:text-yellow-400', 
+    low: 'text-gray-500 dark:text-gray-400' 
+  };
   
   info.innerHTML = `
-    <div class="flex flex-wrap items-center gap-x-6 gap-y-1">
-      <span class="font-mono font-bold text-base">${formatLocalTime(selectedHour)} – ${formatLocalTime(selectedHour+1)}</span>
-      <span class="text-xs text-gray-400">(UTC ${pad(selectedHour)}:00)</span>
-      <span class="font-semibold ${colors[liq]}">${liquidityLabel(liq)}</span>
-      <span class="text-gray-600 dark:text-gray-300">${advice}</span>
-    </div>`;
+    <div class="font-mono font-bold text-base text-gray-800 dark:text-gray-200">
+      ${formatLocalTime(selectedHour)} – ${formatLocalTime(selectedHour+1)}
+    </div>
+    <div class="${colors[liq]} font-semibold">
+      Likvidlik: ${liquidityLabel(liq)}
+    </div>
+  `;
 }
 
 // ================== INSTRUMENTLAR ==================
