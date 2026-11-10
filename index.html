@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Eng yaxshi trading vaqtlari</title>
+<title>Eng yaxshi savdo vaqtlari</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
   tailwind.config = {
@@ -161,7 +161,8 @@
 <!-- HEADER -->
 <header class="bg-gray-800 shadow-sm sticky top-0 z-30">
   <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-    <h1 class="font-bold text-lg">📊 Trading Times</h1>
+    <!-- Sarlavha o'zgartirildi va emblema olib tashlandi -->
+    <h1 class="font-bold text-lg">Eng yaxshi savdo vaqtlari</h1>
     
     <div class="flex items-center gap-1">
       <button id="sortBtn" class="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-gray-700 transition-colors" title="Tartiblash">
@@ -235,7 +236,7 @@
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 
 <script>
-// ================= STANDART MA'LUMOTLAR (Mahalliy vaqtda, UTC ga o'girilmagan) =================
+// ================= STANDART MA'LUMOTLAR =================
 const defaultInstruments = [
   { type: 'Metall', pair: 'XAUUSD', times: ['12:30 - 17:30'], isVisible: true },
   { type: 'Forex',  pair: 'EURUSD', times: ['06:30 - 10:30'], isVisible: true },
@@ -248,7 +249,7 @@ const defaultInstruments = [
 
 const defaultFilters = ['Forex', 'Metall', 'Indeks'];
 
-// Eski noto'g'ri UTC ma'lumotlarini tozalash
+// Eski ma'lumotlarni tozalash
 localStorage.removeItem('trading_instruments'); 
 localStorage.removeItem('trading_instruments_v2');
 
@@ -269,7 +270,6 @@ let sortableInstance = null;
 
 function pad(n){ return String(Math.floor(n)).padStart(2,'0'); }
 
-// Mahalliy vaqtni olish funksiyasi (endi UTC offset ishlatilmaydi)
 function formatTimeInterval(startHour) {
   let hStart = Math.floor(startHour);
   let mStart = Math.round((startHour - hStart) * 60);
@@ -683,7 +683,7 @@ function renderRuler(){
   const wrap = document.getElementById('rulerWrap');
   wrap.innerHTML = '';
   for (let h = 0; h < 24; h++){
-    const liq = liquidityAt(h); // Mahalliy soat bo'yicha
+    const liq = liquidityAt(h);
     const seg = document.createElement('div');
     seg.className = `ruler-seg liq-${liq}`;
     seg.id = `seg-${h}`;
@@ -701,7 +701,7 @@ function updateTimeBadge(){
   const badge = document.getElementById('timeBadge');
   if (selectedHour === null) {
     const now = new Date();
-    badge.textContent = formatTimeInterval(now.getHours()); // Hozirgi mahalliy soat
+    badge.textContent = formatTimeInterval(now.getHours());
     badge.className = 'text-sm font-mono font-semibold bg-gray-700 text-gray-300 px-3 py-1 rounded-lg border border-gray-600 transition-colors hover:bg-gray-600 focus:outline-none cursor-default';
   } else {
     badge.textContent = formatTimeInterval(selectedHour);
@@ -722,7 +722,7 @@ function updateNowLine(){
   const line = document.getElementById('nowLine');
   const baseContainer = document.getElementById('baseContainer');
   const now = new Date();
-  const currentHour = now.getHours(); // Hozirgi mahalliy soat
+  const currentHour = now.getHours();
   
   const currentSeg = document.getElementById(`seg-${currentHour}`);
   
@@ -811,7 +811,6 @@ function renderInstrumentList(){
     return;
   }
 
-  // Hozirgi mahalliy vaqt daqiqalarda
   const now = new Date();
   let currentMinutes = now.getHours() * 60 + now.getMinutes();
 
