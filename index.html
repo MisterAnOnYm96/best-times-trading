@@ -124,7 +124,7 @@
     touch-action: pan-y;
   }
 
-  /* Chiroyli Checkbox (Galochka) dizayni */
+  /* Checkbox dizayni */
   .custom-checkbox {
     appearance: none;
     -webkit-appearance: none;
@@ -235,7 +235,8 @@
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 
 <script>
-let INSTRUMENTS = [
+// ================= MA'LUMOTLARNI YUKLASH (localStorage) =================
+const defaultInstruments = [
   { type: 'Forex', pair: 'EURUSD', times: ['01:00 - 01:59'], isVisible: true },
   { type: 'Forex', pair: 'USDCAD', times: ['12:00 - 12:59'], isVisible: true },
   { type: 'Forex', pair: 'USDJPY', times: ['12:00 - 12:59'], isVisible: true },
@@ -245,9 +246,19 @@ let INSTRUMENTS = [
   { type: 'Forex', pair: 'AUDUSD', times: ['23:00 - 23:59', '12:00 - 12:59'], isVisible: true },
 ];
 
+let INSTRUMENTS = JSON.parse(localStorage.getItem('trading_instruments')) || defaultInstruments;
+let currentFilterTypes = JSON.parse(localStorage.getItem('trading_filters')) || ['Forex', 'Metall', 'Indeks'];
+
+// Saqlash funksiyasi
+function saveToLocalStorage() {
+  localStorage.setItem('trading_instruments', JSON.stringify(INSTRUMENTS));
+  localStorage.setItem('trading_filters', JSON.stringify(currentFilterTypes));
+}
+
+// ========================================================================
+
 let tzOffset = -new Date().getTimezoneOffset() / 60; 
 let selectedHour = null;
-let currentFilterTypes = ['Forex', 'Metall', 'Indeks']; 
 let isSorting = false; 
 let sortableInstance = null; 
 
@@ -324,7 +335,6 @@ const sortIconDefault = document.getElementById('sortIconDefault');
 const sortIconCheck = document.getElementById('sortIconCheck');
 
 sortBtn.addEventListener('click', () => {
-  // Agar filtrda hech narsa tanlanmagan bo'lsa, tartiblashga ruxsat bermaymiz
   if (currentFilterTypes.length === 0) return;
 
   isSorting = !isSorting;
@@ -360,6 +370,7 @@ sortBtn.addEventListener('click', () => {
         });
 
         INSTRUMENTS = newInstruments;
+        saveToLocalStorage(); // Tartib saqlandi
       }
     });
   } else {
@@ -396,7 +407,6 @@ function openSheet() {
   document.querySelectorAll('.filter-tag').forEach(btn => {
     btn.addEventListener('click', () => {
       const type = btn.dataset.type;
-      // Cheklov olib tashlandi: hammasini o'chirish mumkin
       if (tempFilterTypes.includes(type)) {
         tempFilterTypes = tempFilterTypes.filter(t => t !== type);
         btn.classList.remove('bg-brand-500', 'border-brand-500', 'text-white');
@@ -426,7 +436,6 @@ sheetOverlay.addEventListener('click', closeSheet);
 saveFilterBtn.addEventListener('click', () => {
   currentFilterTypes = [...tempFilterTypes];
   
-  // Agar filtrda hech narsa qolmagan bo'lsa, tartiblashni o'chiramiz
   if (currentFilterTypes.length === 0 && isSorting) {
     isSorting = false;
     sortIconCheck.classList.add('hidden');
@@ -438,6 +447,7 @@ saveFilterBtn.addEventListener('click', () => {
     }
   }
 
+  saveToLocalStorage(); // Filtr saqlandi
   renderInstrumentList(); 
   closeSheet();
 });
@@ -484,6 +494,7 @@ function closeMenuSheet() {
   setTimeout(() => menuSheet.classList.add('pointer-events-none'), 300);
 }
 
+// INPUT VA CHECKBOX JOYLASHUVI
 function renderTimeRows() {
   const uniquePairs = [...new Set(INSTRUMENTS.map(i => i.pair))];
   
@@ -502,29 +513,35 @@ function renderTimeRows() {
 
         <div class="flex-1 flex items-center justify-center bg-gray-700/50 border border-gray-600 rounded-lg px-1 py-1 focus-within:border-brand-500 transition-colors">
           
+          <!-- onfocus="this.select()" qo'shildi (avtomatik belgilash uchun) -->
+          <!-- oninput o'rniga onkeyup ishlatiladi (to'g'ri o'tish uchun) -->
           <input type="number" id="startH-${index}" min="0" max="23" placeholder="00" value="${row.startH}" 
                  class="w-7 bg-transparent text-center text-gray-200 text-sm font-mono outline-none" 
                  data-index="${index}" data-field="startH" 
-                 oninput="handleTimeInput(this, 'startM-${index}')">
+                 onfocus="this.select()"
+                 onkeyup="handleTimeInput(this, 'startM-${index}')">
           <span class="text-gray-400 text-sm font-mono mx-0.5">:</span>
           
           <input type="number" id="startM-${index}" min="0" max="59" placeholder="00" value="${row.startM}" 
                  class="w-7 bg-transparent text-center text-gray-200 text-sm font-mono outline-none" 
                  data-index="${index}" data-field="startM" 
-                 oninput="handleTimeInput(this, 'endH-${index}')">
+                 onfocus="this.select()"
+                 onkeyup="handleTimeInput(this, 'endH-${index}')">
           
           <span class="text-gray-500 text-sm font-mono mx-1">-</span>
 
           <input type="number" id="endH-${index}" min="0" max="23" placeholder="00" value="${row.endH}" 
                  class="w-7 bg-transparent text-center text-gray-200 text-sm font-mono outline-none" 
                  data-index="${index}" data-field="endH" 
-                 oninput="handleTimeInput(this, 'endM-${index}')">
+                 onfocus="this.select()"
+                 onkeyup="handleTimeInput(this, 'endM-${index}')">
           <span class="text-gray-400 text-sm font-mono mx-0.5">:</span>
           
           <input type="number" id="endM-${index}" min="0" max="59" placeholder="00" value="${row.endM}" 
                  class="w-7 bg-transparent text-center text-gray-200 text-sm font-mono outline-none" 
                  data-index="${index}" data-field="endM" 
-                 oninput="handleTimeInput(this, null)">
+                 onfocus="this.select()"
+                 onkeyup="handleTimeInput(this, null)">
           
         </div>
         
@@ -561,27 +578,32 @@ window.toggleCheck = function(index, isChecked) {
   }
 };
 
+// AVTOMATIK O'TISH VA TO'G'RILASH (Faqat 2 ta raqam kiritilganda ishlaydi)
 window.handleTimeInput = function(el, nextId) {
   let val = el.value;
   const index = el.dataset.index;
   const field = el.dataset.field;
 
+  // 2 tadan ko'p raqam kiritilmasin
   if (val.length > 2) {
     val = val.slice(0, 2);
     el.value = val;
   }
 
+  // Chegaradan oshib ketsa to'g'rilash
   if (field.includes('H') && parseInt(val) > 23) { el.value = '23'; val = '23'; }
   if (field.includes('M') && parseInt(val) > 59) { el.value = '59'; val = '59'; }
 
+  // Agar 2 ta raqam yozilgan bo'lsa, keyingi katakka o'tish
   if (val.length === 2 && nextId) {
     const nextInput = document.getElementById(nextId);
     if (nextInput) {
       nextInput.focus();
-      nextInput.select();
+      nextInput.select(); // Keyingi katakdagi matnni belgilab qo'yish (oson almashtirish uchun)
     }
   }
 
+  // Ma'lumotni yangilash
   if (tempTimeRows[index]) {
     tempTimeRows[index][field] = val.padStart(2, '0');
   }
@@ -653,8 +675,8 @@ saveMenuBtn.addEventListener('click', () => {
   
   const existingTypes = [...new Set(INSTRUMENTS.map(i => i.type))];
   currentFilterTypes = currentFilterTypes.filter(t => existingTypes.includes(t));
-  // Agar filtrda hamma narsa o'chirilgan bo'lsa, bo'sh massiv qoladi, bu normal holat
 
+  saveToLocalStorage(); // Sozlamalar va vaqtlar saqlandi
   renderInstrumentList();
   closeMenuSheet();
 });
@@ -773,11 +795,9 @@ rulerWrap.addEventListener('touchstart', startDrag, { passive: false });
 rulerWrap.addEventListener('touchmove', onDrag, { passive: false });
 window.addEventListener('touchend', endDrag);
 
-// ASOSIY EKRAN (Filtrda hech narsa tanlanmasa yozuv chiqadi)
 function renderInstrumentList(){
   const list = document.getElementById('instrumentList');
   
-  // Agar filtrda hech narsa tanlanmagan bo'lsa
   if (currentFilterTypes.length === 0) {
     list.innerHTML = `<div class="text-center text-gray-500 py-8 text-sm font-medium">Filtrda hech narsa tanlanmagan</div>`;
     return;
