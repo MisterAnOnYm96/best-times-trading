@@ -235,49 +235,53 @@
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 
 <script>
-// ================= STANDART MA'LUMOTLAR (Siz kiritgan Toshkent vaqti UTC ga o'girilgan holda) =================
+// ================= STANDART MA'LUMOTLAR (Mahalliy vaqtda, UTC ga o'girilmagan) =================
 const defaultInstruments = [
-  { type: 'Metall', pair: 'XAUUSD', times: ['07:30 - 12:30'], isVisible: true },
-  { type: 'Forex',  pair: 'EURUSD', times: ['01:30 - 05:30'], isVisible: true },
-  { type: 'Forex',  pair: 'USDCAD', times: ['12:30 - 17:30'], isVisible: true },
-  { type: 'Forex',  pair: 'USDJPY', times: ['12:30 - 17:30'], isVisible: true },
-  { type: 'Forex',  pair: 'GBPJPY', times: ['04:30 - 08:30'], isVisible: true },
-  { type: 'Indeks', pair: 'US30',   times: ['01:30 - 06:30', '12:00 - 17:30'], isVisible: true },
-  { type: 'Forex',  pair: 'AUDUSD', times: ['23:30 - 03:30', '12:30 - 16:30'], isVisible: true }
+  { type: 'Metall', pair: 'XAUUSD', times: ['12:30 - 17:30'], isVisible: true },
+  { type: 'Forex',  pair: 'EURUSD', times: ['06:30 - 10:30'], isVisible: true },
+  { type: 'Forex',  pair: 'USDCAD', times: ['17:30 - 22:30'], isVisible: true },
+  { type: 'Forex',  pair: 'USDJPY', times: ['17:30 - 22:30'], isVisible: true },
+  { type: 'Forex',  pair: 'GBPJPY', times: ['09:30 - 13:30'], isVisible: true },
+  { type: 'Indeks', pair: 'US30',   times: ['06:30 - 11:30', '17:00 - 22:30'], isVisible: true },
+  { type: 'Forex',  pair: 'AUDUSD', times: ['04:30 - 08:30', '17:30 - 21:30'], isVisible: true }
 ];
 
 const defaultFilters = ['Forex', 'Metall', 'Indeks'];
 
-let INSTRUMENTS = JSON.parse(localStorage.getItem('trading_instruments')) || defaultInstruments;
-let currentFilterTypes = JSON.parse(localStorage.getItem('trading_filters')) || defaultFilters;
+// Eski noto'g'ri UTC ma'lumotlarini tozalash
+localStorage.removeItem('trading_instruments'); 
+localStorage.removeItem('trading_instruments_v2');
+
+let INSTRUMENTS = JSON.parse(localStorage.getItem('trading_instruments_local')) || defaultInstruments;
+let currentFilterTypes = JSON.parse(localStorage.getItem('trading_filters_local')) || defaultFilters;
 
 // Saqlash funksiyasi
 function saveToLocalStorage() {
-  localStorage.setItem('trading_instruments', JSON.stringify(INSTRUMENTS));
-  localStorage.setItem('trading_filters', JSON.stringify(currentFilterTypes));
+  localStorage.setItem('trading_instruments_local', JSON.stringify(INSTRUMENTS));
+  localStorage.setItem('trading_filters_local', JSON.stringify(currentFilterTypes));
 }
 
 // ========================================================================
 
-let tzOffset = -new Date().getTimezoneOffset() / 60; 
 let selectedHour = null;
 let isSorting = false; 
 let sortableInstance = null; 
 
 function pad(n){ return String(Math.floor(n)).padStart(2,'0'); }
 
-function formatTimeInterval(startUtcH) {
-  let localStart = (startUtcH + tzOffset) % 24;
-  if (localStart < 0) localStart += 24;
-  let localEnd = (startUtcH + 1 + tzOffset) % 24;
-  if (localEnd < 0) localEnd += 24;
+// Mahalliy vaqtni olish funksiyasi (endi UTC offset ishlatilmaydi)
+function formatTimeInterval(startHour) {
+  let hStart = Math.floor(startHour);
+  let mStart = Math.round((startHour - hStart) * 60);
   
-  let hStart = Math.floor(localStart);
-  let mStart = Math.round((localStart - hStart) * 60);
+  let nextHour = startHour + 1;
+  let hEnd = Math.floor(nextHour);
+  let mEnd = Math.round((nextHour - hEnd) * 60);
   
-  let hEnd = Math.floor(localEnd);
-  let mEnd = Math.round((localEnd - hEnd) * 60);
-  
+  if (nextHour >= 24) {
+    hEnd = hEnd % 24;
+  }
+
   let displayEnd = '';
   if (mEnd === 0) {
     let prevHour = (hEnd - 1 + 24) % 24;
@@ -288,10 +292,10 @@ function formatTimeInterval(startUtcH) {
   return `${pad(hStart)}:${pad(mStart)} - ${displayEnd}`;
 }
 
-function liquidityAt(utcHour){
-  const london = utcHour >= 7 && utcHour < 16;
-  const ny = utcHour >= 12 && utcHour < 21;
-  const tokyo = utcHour >= 0 && utcHour < 9;
+function liquidityAt(hour){
+  const london = hour >= 7 && hour < 16;
+  const ny = hour >= 12 && hour < 21;
+  const tokyo = hour >= 0 && hour < 9;
   if (london && ny) return 'overlap';
   if (london || ny) return 'high';
   if (tokyo) return 'medium';
@@ -678,14 +682,14 @@ saveMenuBtn.addEventListener('click', () => {
 function renderRuler(){
   const wrap = document.getElementById('rulerWrap');
   wrap.innerHTML = '';
-  for (let utc = 0; utc < 24; utc++){
-    const liq = liquidityAt(utc);
+  for (let h = 0; h < 24; h++){
+    const liq = liquidityAt(h); // Mahalliy soat bo'yicha
     const seg = document.createElement('div');
     seg.className = `ruler-seg liq-${liq}`;
-    seg.id = `seg-${utc}`;
-    if (selectedHour !== null && utc === selectedHour) seg.classList.add('active');
-    seg.dataset.utc = utc;
-    seg.title = formatTimeInterval(utc);
+    seg.id = `seg-${h}`;
+    if (selectedHour !== null && h === selectedHour) seg.classList.add('active');
+    seg.dataset.hour = h;
+    seg.title = formatTimeInterval(h);
     wrap.appendChild(seg);
   }
   
@@ -697,7 +701,7 @@ function updateTimeBadge(){
   const badge = document.getElementById('timeBadge');
   if (selectedHour === null) {
     const now = new Date();
-    badge.textContent = formatTimeInterval(now.getUTCHours());
+    badge.textContent = formatTimeInterval(now.getHours()); // Hozirgi mahalliy soat
     badge.className = 'text-sm font-mono font-semibold bg-gray-700 text-gray-300 px-3 py-1 rounded-lg border border-gray-600 transition-colors hover:bg-gray-600 focus:outline-none cursor-default';
   } else {
     badge.textContent = formatTimeInterval(selectedHour);
@@ -718,8 +722,9 @@ function updateNowLine(){
   const line = document.getElementById('nowLine');
   const baseContainer = document.getElementById('baseContainer');
   const now = new Date();
-  const utcHours = now.getUTCHours();
-  const currentSeg = document.getElementById(`seg-${utcHours}`);
+  const currentHour = now.getHours(); // Hozirgi mahalliy soat
+  
+  const currentSeg = document.getElementById(`seg-${currentHour}`);
   
   if (currentSeg) {
     const segRect = currentSeg.getBoundingClientRect();
@@ -737,7 +742,7 @@ function getHourFromX(clientX) {
   const segments = document.querySelectorAll('.ruler-seg');
   for (let i = 0; i < segments.length; i++) {
     const rect = segments[i].getBoundingClientRect();
-    if (clientX >= rect.left && clientX <= rect.right) return parseInt(segments[i].dataset.utc);
+    if (clientX >= rect.left && clientX <= rect.right) return parseInt(segments[i].dataset.hour);
   }
   if (clientX < segments[0].getBoundingClientRect().left) return 0;
   if (clientX > segments[23].getBoundingClientRect().right) return 23;
@@ -806,8 +811,9 @@ function renderInstrumentList(){
     return;
   }
 
+  // Hozirgi mahalliy vaqt daqiqalarda
   const now = new Date();
-  let currentMinutes = ((now.getUTCHours() + tzOffset) * 60 + now.getUTCMinutes() + 1440) % 1440;
+  let currentMinutes = now.getHours() * 60 + now.getMinutes();
 
   list.innerHTML = items.map((i) => {
     let timeStr = i.times.map(t => `<div>${t}</div>`).join('');
@@ -854,17 +860,6 @@ function renderInstrumentList(){
 }
 
 (function init(){
-  tzOffset = -new Date().getTimezoneOffset() / 60;
-  
-  // AGAR BRAUZERDA ESKI MA'LUMOT BO'LSA, UNI TOZALAB YANGISINI YUKLASH UCHUN
-  // Buni birinchi marta ishlatayotganingizda kerak bo'ladi.
-  // Agar siz oldin saqlagan bo'lsangiz, localStorage dagi eski ma'lumotlar qolib ketmasligi uchun:
-  if(!localStorage.getItem('trading_instruments_v2')) {
-      localStorage.setItem('trading_instruments', JSON.stringify(defaultInstruments));
-      INSTRUMENTS = defaultInstruments;
-      localStorage.setItem('trading_instruments_v2', 'true'); // Versiya belgisi
-  }
-
   renderInstrumentList();
   renderRuler();
   updateTimeBadge();
