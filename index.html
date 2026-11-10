@@ -235,19 +235,21 @@
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 
 <script>
-// ================= MA'LUMOTLARNI YUKLASH (localStorage) =================
+// ================= STANDART MA'LUMOTLAR (Siz kiritgan Toshkent vaqti UTC ga o'girilgan holda) =================
 const defaultInstruments = [
-  { type: 'Forex', pair: 'EURUSD', times: ['01:00 - 01:59'], isVisible: true },
-  { type: 'Forex', pair: 'USDCAD', times: ['12:00 - 12:59'], isVisible: true },
-  { type: 'Forex', pair: 'USDJPY', times: ['12:00 - 12:59'], isVisible: true },
-  { type: 'Forex', pair: 'GBPJPY', times: ['04:00 - 04:59'], isVisible: true },
-  { type: 'Metall', pair: 'XAUUSD', times: ['07:00 - 07:59'], isVisible: true },
-  { type: 'Indeks', pair: 'US30', times: ['01:00 - 01:59', '11:30 - 12:29'], isVisible: true },
-  { type: 'Forex', pair: 'AUDUSD', times: ['23:00 - 23:59', '12:00 - 12:59'], isVisible: true },
+  { type: 'Metall', pair: 'XAUUSD', times: ['07:30 - 12:30'], isVisible: true },
+  { type: 'Forex',  pair: 'EURUSD', times: ['01:30 - 05:30'], isVisible: true },
+  { type: 'Forex',  pair: 'USDCAD', times: ['12:30 - 17:30'], isVisible: true },
+  { type: 'Forex',  pair: 'USDJPY', times: ['12:30 - 17:30'], isVisible: true },
+  { type: 'Forex',  pair: 'GBPJPY', times: ['04:30 - 08:30'], isVisible: true },
+  { type: 'Indeks', pair: 'US30',   times: ['01:30 - 06:30', '12:00 - 17:30'], isVisible: true },
+  { type: 'Forex',  pair: 'AUDUSD', times: ['23:30 - 03:30', '12:30 - 16:30'], isVisible: true }
 ];
 
+const defaultFilters = ['Forex', 'Metall', 'Indeks'];
+
 let INSTRUMENTS = JSON.parse(localStorage.getItem('trading_instruments')) || defaultInstruments;
-let currentFilterTypes = JSON.parse(localStorage.getItem('trading_filters')) || ['Forex', 'Metall', 'Indeks'];
+let currentFilterTypes = JSON.parse(localStorage.getItem('trading_filters')) || defaultFilters;
 
 // Saqlash funksiyasi
 function saveToLocalStorage() {
@@ -370,7 +372,7 @@ sortBtn.addEventListener('click', () => {
         });
 
         INSTRUMENTS = newInstruments;
-        saveToLocalStorage(); // Tartib saqlandi
+        saveToLocalStorage();
       }
     });
   } else {
@@ -447,7 +449,7 @@ saveFilterBtn.addEventListener('click', () => {
     }
   }
 
-  saveToLocalStorage(); // Filtr saqlandi
+  saveToLocalStorage();
   renderInstrumentList(); 
   closeSheet();
 });
@@ -494,7 +496,6 @@ function closeMenuSheet() {
   setTimeout(() => menuSheet.classList.add('pointer-events-none'), 300);
 }
 
-// INPUT VA CHECKBOX JOYLASHUVI
 function renderTimeRows() {
   const uniquePairs = [...new Set(INSTRUMENTS.map(i => i.pair))];
   
@@ -513,8 +514,6 @@ function renderTimeRows() {
 
         <div class="flex-1 flex items-center justify-center bg-gray-700/50 border border-gray-600 rounded-lg px-1 py-1 focus-within:border-brand-500 transition-colors">
           
-          <!-- onfocus="this.select()" qo'shildi (avtomatik belgilash uchun) -->
-          <!-- oninput o'rniga onkeyup ishlatiladi (to'g'ri o'tish uchun) -->
           <input type="number" id="startH-${index}" min="0" max="23" placeholder="00" value="${row.startH}" 
                  class="w-7 bg-transparent text-center text-gray-200 text-sm font-mono outline-none" 
                  data-index="${index}" data-field="startH" 
@@ -578,32 +577,27 @@ window.toggleCheck = function(index, isChecked) {
   }
 };
 
-// AVTOMATIK O'TISH VA TO'G'RILASH (Faqat 2 ta raqam kiritilganda ishlaydi)
 window.handleTimeInput = function(el, nextId) {
   let val = el.value;
   const index = el.dataset.index;
   const field = el.dataset.field;
 
-  // 2 tadan ko'p raqam kiritilmasin
   if (val.length > 2) {
     val = val.slice(0, 2);
     el.value = val;
   }
 
-  // Chegaradan oshib ketsa to'g'rilash
   if (field.includes('H') && parseInt(val) > 23) { el.value = '23'; val = '23'; }
   if (field.includes('M') && parseInt(val) > 59) { el.value = '59'; val = '59'; }
 
-  // Agar 2 ta raqam yozilgan bo'lsa, keyingi katakka o'tish
   if (val.length === 2 && nextId) {
     const nextInput = document.getElementById(nextId);
     if (nextInput) {
       nextInput.focus();
-      nextInput.select(); // Keyingi katakdagi matnni belgilab qo'yish (oson almashtirish uchun)
+      nextInput.select();
     }
   }
 
-  // Ma'lumotni yangilash
   if (tempTimeRows[index]) {
     tempTimeRows[index][field] = val.padStart(2, '0');
   }
@@ -676,7 +670,7 @@ saveMenuBtn.addEventListener('click', () => {
   const existingTypes = [...new Set(INSTRUMENTS.map(i => i.type))];
   currentFilterTypes = currentFilterTypes.filter(t => existingTypes.includes(t));
 
-  saveToLocalStorage(); // Sozlamalar va vaqtlar saqlandi
+  saveToLocalStorage();
   renderInstrumentList();
   closeMenuSheet();
 });
@@ -861,6 +855,16 @@ function renderInstrumentList(){
 
 (function init(){
   tzOffset = -new Date().getTimezoneOffset() / 60;
+  
+  // AGAR BRAUZERDA ESKI MA'LUMOT BO'LSA, UNI TOZALAB YANGISINI YUKLASH UCHUN
+  // Buni birinchi marta ishlatayotganingizda kerak bo'ladi.
+  // Agar siz oldin saqlagan bo'lsangiz, localStorage dagi eski ma'lumotlar qolib ketmasligi uchun:
+  if(!localStorage.getItem('trading_instruments_v2')) {
+      localStorage.setItem('trading_instruments', JSON.stringify(defaultInstruments));
+      INSTRUMENTS = defaultInstruments;
+      localStorage.setItem('trading_instruments_v2', 'true'); // Versiya belgisi
+  }
+
   renderInstrumentList();
   renderRuler();
   updateTimeBadge();
